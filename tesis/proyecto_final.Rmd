@@ -1,0 +1,538 @@
+---
+title: "Proyecto Final Regresión Final"
+author: "Omar Díaz, Felipe Gerard, Liliana Millán"
+date: "14 de diciembre de 2015"
+output: html_document
+bibliography: bibliography.bib
+---
+
+```{r, echo=FALSE,warning=FALSE}
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(gridExtra))
+suppressPackageStartupMessages(library(knitr))
+suppressPackageStartupMessages(library(AUC))
+
+################
+
+## Datos generales
+load('salidas/datos_base.RData')
+
+dat <- datos$dat
+tr <- datos$tr
+te <- datos$te
+
+## Datos de Felipe
+load('salidas/omar_melanoma.RData')
+```
+
+
+# Descripción
+
+El presente documento consiste en analizar un conjunto de medidas que se han tomado a pacientes que presentan un melanoma maligno. A cada uno de los pacientes se ha extirpado el tumor a través de una cirugía en el Departamento de Cirugía Plastica de la Universidad de Odense, Dinamarca durante el periodo de 1962 a 1977. La cirugía consistió en la eliminación completa del tumor así como 2.5cm de piel alrededor del tumor. Entre las mediciones tomadas se encuentra el espesor del tumor y si fue ulcerada o no. La hipótesis incial de acuerdo a la documentación del paquete boot donde se encuentra este set de datos [@datos] es que los pacientes que tienen un tumor grueso y/o ulcerado tienen mayor probabilidad de muerte por melanoma, por lo que estas características pueden ser variables importantes para pronosticarla. 
+
+Los pacientes fueron monitoreados hasta el final de 1977. En total se cuenta con 205 pacientes y 7 características de interés, entre las cuales se encuentran:
+
+* Tiempo .- El tiempo de supervivencia en días desde la operación, posiblemente censurado.
+
+* Estatus .- El estatus del paciente al final de estudio, donde 1 representa que el paciente murió por causa del melanoma, 2 indica que continúa con vida y 3 si ha muerto por causas no relacionadas con el melanoma.
+
+* Sexo .- El sexo del paciente; 1= hombre, 0=mujer.
+
+* Edad .- La edad del paciente en años al momento de la cirugía.
+
+* Año .- Año de la cirugía. 
+
+* Grosor .- Grosor del tumor en mm.
+
+* Ulcera .- Indicador de úlcera; 1=ulcerado, 0=sin ulcera.
+
+
+Debido a que la motivación del presente análisis es conocer cuál es la probabilidad de morir a causa del melanoma, se ha creado la nueva variable $y$, la cual es una indicadora que toma los valores de $y=1$ cuando la muerte del paciente fue causada por el melanoma y $y=0$ cuando aún continúa con vida o murió por otras causas. Para ello se realizarán diferentes modelos con la finalidad de elegir aquel que pronostique en mejor medida la probabilidad de muerte causada por el melanoma. Entre ellos, se encuentra el enfoque frecuentista de la regresión logística, un modelo lineal generalizado con ligas logit y probit bajo un enfoque bayesiano, así como un modelo lineal generalizado con penalización LASSO también con un enfoque bayesiano. 
+
+Dado que se eligirá el modelo que mejor pronostique la probabilidad de muerte a causa de un melanoma maligno, es necesario observar el poder predictivo del modelo bajo nueva información. Es por esta razón que de la población total se ha decidido conservar una muestra del $70\%$ —144 observaciones— para entrenar el modelo y una muestra del $30\%$ —61 observaciones— de la población para validar su capacidad de predicción. A la primera de las muestras la denominaremos muestra de entrenamiento, mientras que a la segunda muestra se le llamará muestrea de prueba a lo largo de este documento.
+
+El presente documento tiene la siguiente estructura: En la sección (1) se inicia con el análisis del modelo lineal generalizado bajo el enfoque frecuentista analizando las diferentes combinaciones entre las variables e identificando las variables con mayor significancia, se continua con el análisis del desempeño del modelo y las concluciones para el modelo. En la sección (2) se presenta el análisis del modelo lineal generalizado con liga logit bajo el enfoque bayesiano presentando el análisis de los coeficientes, la verificación de las simulaciones del modelo en JAGS, el análisis del desempeño del modelo y las conclusiones para el modelo. Se sigue con el análisis del modelo lineal generalizado con liga probit bajo el enfoque bayesiano siguiendo la misma estructura que en el modelo con liga logit. Después, en la sección (3) se presenta el análisis del modelo lineal generalizado con penalización LASSO bajo el enfoque bayesiano especificando la penalización LASSO explicando la metodología, se presenta el análisis de los coeficientes, el análisis del desempeño del modelo y las conclusiones para el modelo. En la sección (4) se presenta un análisis de los resultados obtenidos en cada modelo y la selección del modelo con mejor desempeño y para finalizar, la sección (5) presenta las conclusiones generales para el análisis realizado. 
+
+
+**Observaciones**
+
++ Debido a que las variables numéricas representan diferentes unidades —días, milímetros y edad— los escalamos ocupando la media y desviación estándar del conjunto de entrenamiento para que todos estuvieran en la misma escala y facilitar la identificación de la importancia de cada variable en los modelos generados.
+
++ La variable **año** fue eliminada del conjunto de datos ya que hicimos un análisis estático.
+
+
++ Dado que la salida de los modelos son las probabilidades $p(x_i)$, la predicción se puede hacer utilizando un umbral $d$, de modo que predecimos
+
+$$
+\hat{y}_i = \left \{
+\begin{array}{ll}
+1 & x_i \geq d\\
+0 & x_i < d
+\end{array}
+\right .
+$$
+
+Al mover este umbral se obtienen diversas tasas de falsos positivos (porcentaje de casos negativos identificados erróneamente) y de verdaderos positivos (porcentaje de los casos positivos identificados correctamente); si graficamos estas dos medidas se obtiene la _curva ROC_, que mide la calidad general del modelo, que puede ser ajustada con el umbral según el costo de cada tipo de error. Por ejemplo, en este caso es mucho más grave predecir que alguien no morirá de melanoma cuando sí morirá, que decir que alguien morirá cuando no es verdad. El primero podría llevar a no aplicar más pruebas y a seguir intentando sanar a un paciente enfermo, mientras que el segundo asustará a la persona, pero análisis subsecuentes mostrarán que la situación no era tan grave. Adicionalmente, proporcionamos el _AUC_ o _área bajo la curva ROC_, que la sumariza en un solo número. Mientras más cercano a 1 sea, mejor es el modelo.
+
++ En las gráficas de ROC mostradas en el análisis, los falsos positivos representan el diagnóstico de morir por el melanoma $y=1$ y en realidad la persona no se muera por melanoma $y=0$. Los verdaderos positivos representan el diagnóstico de morir por el melanoma $y=1$ y el paciente murió por esta causa. Los falsos negativos representan el diagnóstico de no morir por el melanoma $y=0$ y en realidad la persona muere por el melanoma $y=1$, este tipo de error es el más costoso en nuestros modelos. Los verdaderos negativos representa el diagnóstico de no morir por el melanoma $y=0$ y la persona no muere por el melanoma.
+
+# 1. Modelo lineal generalizado enfoque frecuentista
+
+El primero de los análisis presentados es la regresión logística bajo un enfoque frecuentista. Para realizar un modelo que sea parsimonioso y que tenga buen poder predictivo, es necesario hacer una cuidadosa selección de las características que se han registrado en cada uno de los pacientes.
+
+> **Configuración del modelo:** función glm del paquete stats, familia binomial con liga logit. 
+
+## Selección de variables
+
+El proceso que se ha decidido seguir para seleccionar aquellas características que generalicen mejor a la población es el llamado "Stepwise". El cual consiste en primer lugar, en ajustar un modelo, en particular una regresión logística,  a todas las posibles combinaciones de las variables y guardar registro de su poder predictivo tal y como se muestra a continuación.  
+
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+kable(modelos_finales, digits = 3, caption='Selección Stepwise')
+```
+
+En segundo lugar, se prueba cada uno de estos modelos hasta quedarnos con aquel que contenga a todas y cada una de sus variables significativas. Nótese que los modelos están ordenados de manera descendente a partir de su poder predictivo en la base de entrenamiento.
+
+El modelo ganador fue:
+
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+kable(modelos_finales[11,], digits = 3, caption='Selección Stepwise')
+```
+
+## Ajuste
+
+Una vez seleccionado el modelo que tiene el mejor poder predictivo, así como todas sus variables significativas, se procede a exhibir tanto los resultados de dicho modelo ajustado como la gráfica del desempeño del modelo a través de la curva ROC para la base de entrenamiento:
+
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+aic <- m$aic
+summary(m)
+```
+
+El poder predictivo del modelo en términos de AUC es de: `r round(auc(rtr),3)`
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.align='center'}
+rdf <- data.frame(fpr=rtr$fpr, tpr=rtr$tpr, cutoffs=rtr$cutoffs)
+ggplot(rdf, aes(fpr)) +
+  geom_line(aes(y=tpr, color=cutoffs)) +
+  geom_line(aes(fpr, fpr), linetype='dashed') +
+  scale_color_continuous(guide = guide_colorbar(title='Umbral')) +
+  labs(title = sprintf('Curva ROC modelo frecuentista\nÁrea bajo la curva (AUC): %.3f', auc(rtr)),
+       x = 'Tasa de falsos positivos',
+       y = 'Tasa de verdaderos positivos') +
+  coord_equal()
+```
+
+## Pronóstico
+
+Una vez que se ha elegido el modelo ganador se pretende observar cuál es el poder predictivo del modelo cuando se enfrenta a nueva información, es decir, se calificará la nueva información con el modelo previamente ajustado y se medirá en términos de AUC si el modelo pronostica de manera correcta la probabilidad de muerte causada por un melanoma maligno.
+
+El AUC del modelo bajo la base de prueba es de: `r round(auc(rte),3)`
+
+
+Por lo que parece ser que el modelo realizó predicciones acertadas, incluso mejor que en la muestra de entrenamiento. Aunque este sea un patrón poco observado, es completamente posible y se puede concluir que el modelo funciona para pronosticar la probabilidad de muerte causada por melanoma maligno. Además, se puede observar a través de la curva ROC, cómo es que el modelo logra discriminar correctamente aquellos pacientes con baja probabilidad de morir de aquellos que tienen alta probabiliad de morir y que de hecho se sabe que han muerto a causa de su tumor.
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, error=FALSE, fig.align='center'}
+rdf <- data.frame(fpr=rte$fpr, tpr=rte$tpr, cutoffs=rte$cutoffs)
+ggplot(rdf, aes(fpr)) +
+  geom_line(aes(y=tpr, color=cutoffs)) +
+  geom_line(aes(fpr, fpr), linetype='dashed') +
+  scale_color_continuous(guide = guide_colorbar(title='Umbral')) +
+  labs(title = sprintf('Curva ROC modelo frecuentista\nÁrea bajo la curva (AUC): %.3f', auc(rte)),
+       x = 'Tasa de falsos positivos',
+       y = 'Tasa de verdaderos positivos') +
+  coord_equal()
+
+```
+
+
+## Conclusiones
+
+El modelo de regresión lineal generalizada bajo el enfoque frecuentista nos muestra que la  hipótestis inicial que se tenía acerca de que el tamaño del tumor y la presencia de úlceras o no en el tumor resultaría ser un factor importante para pronosticar la probabilidad de muerte era parcialmente errónea, pues únicamente la presencia o ausencia de úlcera es la que en verdad resultó significativa para dicho propósito. Adicionalmente, la estimación del tiempo de superviviencia después de la operaciónparece tener bases muy sólidas pues es el segundo factor relevante.
+
+Además, se mostró que la técnica empleada para la selección de variables fue realmente útil para discriminar entre las características observadas de cada uno de los pacientes.
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, error=FALSE}
+qacf <- function(x, conf.level = 0.95){
+  ciline <- qnorm((1 - conf.level)/2)/sqrt(length(x))
+  bacf <- acf(x, plot = FALSE)
+  bacfdf <- with(bacf, data.frame(lag, acf))
+  ggplot(bacfdf) +
+    geom_bar(aes(lag, acf), stat='identity', width=0.2) +
+    geom_hline(yintercept = -ciline, color = "blue", linetype='dashed') +
+    geom_hline(yintercept = ciline, color = "blue", linetype='dashed') +
+    geom_hline(yintercept = 0) +
+    labs(title='Autocorrelación', x='Retrasos', y='Autocorrelación')
+}
+```
+
+
+
+# 2. Modelos Lineales Generalizados (GLM) enfoque bayesiano
+
+En esta sección realizamos dos modelos lineales generalizados utlizando JAGS en R (paquete R2jags [@r2jags]). Ambos modelos ocupan regresión logística con una distribución Bernoulli ocupando como iniciales distribuciones normales vagas y ocupando como liga logit $log \big(\frac{p}{1-p} \big)$ y probit $\Phi^{-1}(p)$. 
+
+
+> **Configuración de JAGS:** Para los modelos de esta sección se ocuparon 50,000 iteraciones con 1 cadena, eliminando las primeras 1,000, con un adelgazamiento de 1 y ocupando la semilla 1234 para generar números aleatorios.  
+
+
+## 2.1. Logit no informativo
+
+$y_{i}|x_{i} \sim Ber(p(x_{i}))$
+
+
+$logit(p(x_{i})) = \beta_{0} + \beta_{1}time + \beta_{2}sex + \beta_{3}age + \beta_{4}thickness + \beta_{5}ulcer$
+
+
+Inicial: $\beta_{i} \sim N(0,0.001)$, $N(\mu,\tau)$, $\tau=\frac{1}{\sigma^{2}}$
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, error=FALSE}
+load("salidas/liliana.RData")
+
+coeficientes <- liliana[["logit_noinformativo"]][["coeficientes"]]
+pvalues <- liliana[["logit_noinformativo"]][["pvalues"]]
+sim.betas <- liliana[["logit_noinformativo"]][["simulacion_betas"]]
+```
+
+
+### Coeficientes
+
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE, fig.align='center'}
+df.table <- liliana$logit_noinformativo$tabla_modelo
+kable(df.table, digits = 3, caption='Coeficientes de la regresión')
+```
+
+De la tabla de coeficientes identificamos que tanto las variables de tiempo (el tiempo en días después de la operación) como la presencia de úlceras son significativas (pvalue < 0.05) en el modelo.
+
+### Análisis de convergencia
+
+A continuación se muestra el desempeño de la simulación del modelo en JAGS. Durante las 50,000 iteraciones la cadena oscila alrededor del mismo valor, se identifica convergencia de la cadena desde las 10,000 iteraciones, se identifica el histograma sin huecos y se identifica que no hay autocorrelación por lo que la simulación está mezclando correctamente. 
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, error=FALSE, fig.align='center'}
+z <- sim.betas
+m <- cumsum(z)/1:length(z)
+q1 <- qplot(1:length(z), z, geom='line') +
+  labs(title='Simulación', x='Índice', y='beta[1]')
+q2 <- qplot(1:length(m), m, geom='line') +
+  labs(title='Convergencia', x='Índice', y='Media de beta[1]')
+q3 <- qplot(z) +
+  labs(title='Histograma', x='beta[1]', y='Frecuencia')
+q4 <- qacf(z)
+
+grid.arrange(q1,q2,q3,q4)
+```
+
+
+### Desempeño del modelo
+
+El modelo GLM con liga logit tiene un DIC de `r round(liliana[["logit_noinformativo"]][["dic"]],2)`. A continuación se muestra la curva ROC del conjuto de datos de prueba en donde identificamos la cantidad de falsos positivos, y verdaderos positivos del modelo para cada posible umbral.
+    
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE, fig.align='center'}
+r <- liliana[["logit_noinformativo"]][["roc_object_test"]]
+rdf <- data.frame(fpr=r$fpr, tpr=r$tpr, cutoffs=r$cutoffs)
+ggplot(rdf, aes(fpr)) +
+  geom_line(aes(y=tpr, color=cutoffs)) +
+  geom_line(aes(fpr, fpr), linetype='dashed') +
+  scale_color_continuous(guide = guide_colorbar(title='Umbral')) +
+  labs(title = sprintf('Curva ROC GLM logit\nÁrea bajo la curva (AUC): %.3f', auc(r)),
+       x = 'Tasa de falsos positivos',
+       y = 'Tasa de verdaderos positivos') +
+  coord_equal()
+```
+
+
+## 2.2. Probit no informativo
+
+$y_{i} \sim Ber(p(x_{i}))$
+
+
+$probit(p_{i}) = \beta_{0} + \beta_{1}time + \beta_{2}sex + \beta_{3}age + \beta_{4}thickness + \beta_{5}ulcer$
+
+
+Inicial: $\beta_{i} \sim N(0,0.001)$, $N(\mu,\tau)$, $\tau=\frac{1}{\sigma^{2}}$
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, error=FALSE}
+coeficientes <- liliana[["probit_noinformativo"]][["coeficientes"]]
+pvalues <- liliana[["probit_noinformativo"]][["pvalues"]]
+sim.betas <- liliana[["probit_noinformativo"]][["simulacion_betas"]]
+```
+
+### Coeficientes
+
+
+```{r echo=FALSE, warning=FALSE, error=FALSE, message=FALSE, fig.align='center'}
+df.table <- liliana$probit_noinformativo$tabla_modelo
+kable(df.table, digits = 3, caption='Coeficientes de la regresión')
+```
+
+De la tabla de coeficientes identificamos que al igual que en el modelo logit tanto las variables de tiempo (el tiempo en días después de la operación) como la presencia de úlceras son las más significativas (pvalue < 0.05) del modelo.
+
+
+
+### Análisis de convergencia
+
+
+A continuación se muestra el desempeño de la simulación del modelo en JAGS. Durante las 50,000 iteraciones la cadena oscila alrededor del mismo valor, se identifica convergencia de la cadena desde las 10,000 iteraciones, se identifica el histograma sin huecos y se identifica que no hay autocorrelación por lo que la simulación está mezclando correctamente. 
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, error=FALSE, fig.align='center'}
+z <- sim.betas
+m <- cumsum(z)/1:length(z)
+q1 <- qplot(1:length(z), z, geom='line') +
+  labs(title='Simulación', x='Índice', y='beta[1]')
+q2 <- qplot(1:length(m), m, geom='line') +
+  labs(title='Convergencia', x='Índice', y='Media de beta[1]')
+q3 <- qplot(z) +
+  labs(title='Histograma', x='beta[1]', y='Frecuencia')
+q4 <- qacf(z)
+
+grid.arrange(q1,q2,q3,q4)
+```
+
+
+
+### Desempeño del modelo
+
+El modelo GLM con liga logit tiene un DIC de `r round(liliana[["probit_noinformativo"]][["dic"]],2)` —igual que el del modelo logit—. A continuación se muestra la curva ROC del conjuto de datos de prueba en donde identificamos la cantidad de falsos positivos, y verdaderos positivos del modelo para cada posible umbral.
+    
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE, fig.align='center'}
+r <- liliana[["probit_noinformativo"]][["roc_object_test"]]
+rdf <- data.frame(fpr=r$fpr, tpr=r$tpr, cutoffs=r$cutoffs)
+ggplot(rdf, aes(fpr)) +
+  geom_line(aes(y=tpr, color=cutoffs)) +
+  geom_line(aes(fpr, fpr), linetype='dashed') +
+  scale_color_continuous(guide = guide_colorbar(title='Umbral')) +
+  labs(title = sprintf('Curva ROC GLM probit\nÁrea bajo la curva (AUC): %.3f', auc(r)),
+       x = 'Tasa de falsos positivos',
+       y = 'Tasa de verdaderos positivos') +
+  coord_equal()
+```
+
+
+## Conclusiones
+
+El desempeño de los modelos es prácticamente el mismo tanto en DIC como en área bajo la curva con una diferencia marginal a favor del modelo con liga probit. De igual forma los dos modelos identifican a las mismas variables —tiempo y úlcera— como significativas para diagnosticar si la persona morirá por el melanoma o no. Dada la mínima diferencia entre los modelos se prefiere el modelo con liga logit ya que su interpretación es más sencilla. 
+
+
+```{r, echo=FALSE}
+###############
+
+prob <- function(x){
+  a <- sum(x<0)/length(x)
+  min(a, 1-a)
+}
+
+################
+
+## Datos generales
+#load('salidas/datos_base.RData')
+dat <- datos$dat
+tr <- datos$tr
+te <- datos$te
+
+## Datos de Felipe
+load('salidas/felipe.RData')
+```
+
+
+
+# 3. Modelo con regularización $\ell_1$
+
+En esta sección exploraremos la distribución laplaciana como inicial para las betas, es decir, supondremos que
+
+$$
+f(\beta_j | \mu_0, \lambda_0) = \frac{\lambda_0}{2}\exp\{-\lambda_0 |x - \mu_0|\}
+$$
+
+Los demás supuestos para regresión logística bayesiana seguirán siendo los mismos, es decir que para $i = 1, \dots, n$,
+
+$$
+\begin{aligned}
+& y_i | \beta, x_i \sim Bernoulli(p(x_i))\\
+& p(x_i) = \frac{1}{1 + \exp\{-x_i^T\beta\}}
+\end{aligned}
+$$
+
+Normalmente cuando se hace una regresión bayesiana se utiliza iniciales poco informativas para los coeficientes (i.e. $\lambda_0 \approx 0$). Esto es una buena idea si se quiere correr la regresión sin información adicional. Sin embargo, esto puede llevar a sobreajustar la muestra de entrenamiento, lo que puede ocasionar que el error de generalización del modelo sea alto. Una forma de evitar esto es controlar la complejidad del modelo haciendo que los coeficientes no sean demasiado grandes. En un contexto frecuentista esto se puede llevar a cabo con una regularización $\ell_1$, es decir, en lugar de minimizar la devianza $D(\beta | X, Y)$, se minimiza $D(\beta | X, Y) + \|\beta\|_1 = D(\beta | X, Y) + \lambda \sum_{j=1}^p |\beta_j|$, con $\lambda > 0$ elegido de antemano. Resulta que lo anterior es equivalente a hacer una regresión bayesiana con iniciales laplacianas con media $\mu_0 = 0$, y que la precisión inicial $\lambda_0 > 0$ juega el papel de $\lambda$. Es decir, mientras mayor sea $\lambda_0$, más atraemos los coeficientes hacia cero, regularizando más fuertemente. Cabe mencionar que este modelo modula la complejidad encogiendo los parámetros, por lo que en este caso no haremos una búsqueda de variables y confiaremos en que la regularización controlará los coeficientes.
+
+> **Configuración de JAGS:** Para el modelo con regularización se ocuparon 2,000 iteraciones con 5 cadenas, eliminando las primeras 700, sin adelgazamiento y ocupando la semilla 1234 para generar números aleatorios. 
+
+## Estimación
+
+Una parte importante del éxito del método anterior es la correcta elección de $\lambda$ (ó $\lambda_0$). Para ello recurriremos a una técnica llamada Validación Cruzada, que consiste en lo siguiente:
+
+1. Se parte la muestra de entrenamiento en, digamos, $K = 5$ partes
+2. Se escoge una lista de valores $\lambda_1, \dots, \lambda_L$ y para cada uno de ellos:
+    + Para cada sección $k$ de los datos:
+        - Se entrena un modelo _omitiendo_ la sección $k$
+        - Se calcula el error del modelo sobre la sección $k$
+    + Se estima el error y la desviación del error de usar $\lambda_l$ con la media y la desviación de los $K$ modelos
+3. Se elige $\lambda_0=$ la $\lambda_l$ que minimiza el error estimado
+4. Se reentrena el modelo con todo el conjunto de entrenamiento y se verifica su comportamiento en los datos de prueba, que fueron apartados desde el inicio y que no deben ser utilizados en ninguna parte de los pasos anteriores
+
+En la gráfica siguiente se muestran las estimaciones de validación cruzada del error para cada $\lambda_0$. La línea punteada indica el valor óptimo encontrado.
+
+```{r, echo=FALSE, fig.align='center'}
+means <- sapply(felipe$cv1$models, function(x) x$err$mean)
+sds <- sapply(felipe$cv1$models, function(x) x$err$sd)
+x <- log(felipe$cv1$lambdas)
+best <- which.min(means)
+qplot(x, means, geom='line') +
+  geom_ribbon(aes(x, ymin=means-sds, ymax=means+sds), alpha=0.5) +
+  geom_vline(xintercept=x[best], linetype='dashed') +
+  labs(title='Validación cruzada de la\ndispersión inicial de los coeficientes',
+       x='log(lambda[0])',
+       y='Error')
+```
+
+Ya que se seleccionó un valor para $\lambda_0$ se continua con la estimación de los coeficientes con toda la muestra de entrenamiento y se analiza su comportamiento. En la siguiente tabla se muestra el resumen de las estimaciones de los coeficientes:
+
+```{r, echo=FALSE}
+sim <- felipe$rl_best
+out <- felipe$rl_best$BUGSoutput$sims.list
+out_sum <- felipe$rl_best$BUGSoutput$summary
+
+pvalues <- out$beta %>%
+  apply(2, prob) %>%
+  data.frame(pvalue = .) %>%
+  mutate(significance = ifelse(pvalue < 0.01, '***',
+                               ifelse(pvalue < 0.05, '**',
+                                      ifelse(pvalue < 0.1, '*',
+                                             '-'))),
+         pvalue = paste(round(pvalue, 4), significance)) %>%
+  select(pvalue)
+aux <- out_sum[grep('beta|tau', rownames(out_sum)), ] %>%
+  as.data.frame %>%
+  select(Estimate=mean, sd, `2.5%`, `97.5%`) %>%
+  cbind(pvalues)
+nvar <- nrow(aux)
+rownames(aux)[1:nvar] <- c('Intercepto', felipe$cv1$xvars) #sapply(0:(nvar-1), function(i) sprintf('beta[%d]', i)) #c('Intercepto','time','ulcer')
+kable(aux, digits = 3, caption='Coeficientes de la regresión')
+```
+
+Antes de analizar la regresión en sí, analizaremos brevemente la convergencia de los coeficientes. La gráfica siguiente muestra un diagnóstico simple para el coeficiente de la variable ``r felipe$cv1$xvars[1]``, en el que se puede identificar que la simulación ha convergido dentro de los límites de lo razonable.
+
+```{r, echo=FALSE,message=FALSE, warning=FALSE, fig.align='center'}
+z <- out$beta[,2]
+m <- cumsum(z)/1:length(z)
+q1 <- qplot(1:length(z), z, geom='line') +
+  labs(title='Simulación', x='Índice', y='beta[1]')
+q2 <- qplot(1:length(m), m, geom='line') +
+  labs(title='Convergencia', x='Índice', y='Media de beta[1]')
+q3 <- qplot(z) +
+  labs(title='Histograma', x='beta[1]', y='Frecuencia')
+q4 <- qacf(z)
+
+grid.arrange(q1,q2,q3,q4)
+```
+
+## Ajuste
+
+A continuación analizamos los coeficientes estimados. En la tabla anterior se identifica que no todas las variables son significativas, pero en este caso se dejó que la validación cruzada manejara este problema. En cuanto al ajuste, el modelo hizo un buen trabajo, con un DIC de `r round(sim$BUGSoutput$DIC, 3)`, que es menor que en los modelos anteriores con iniciales no informativas.  
+
+A continuación se muestra el desempeño del modelo a través de la curva ROC y el AUC para el modelo evaluado sobre los datos de prueba, que no había visto previamente:
+
+```{r, echo=FALSE, fig.align='center'}
+y <- te$y
+yhat <- out_sum %>%
+  as.data.frame %>%
+  filter(grepl('y_test', rownames(out_sum))) %>%
+  .$mean
+r <- roc(yhat, factor(y))
+rdf <- data.frame(fpr=r$fpr, tpr=r$tpr, cutoffs=r$cutoffs)
+ggplot(rdf, aes(fpr)) +
+  geom_line(aes(y=tpr, color=cutoffs)) +
+  geom_line(aes(fpr, fpr), linetype='dashed') +
+  scale_color_continuous(guide = guide_colorbar(title='Umbral')) +
+  labs(title = sprintf('Curva ROC del modelo regularizado\nÁrea bajo la curva (AUC): %.3f', auc(r)),
+       x = 'Tasa de falsos positivos',
+       y = 'Tasa de verdaderos positivos') +
+  coord_equal()
+```
+
+
+## Conclusiones
+
+A través del modelo con regularización LASSO se obtuvieron varias conclusiones interesantes sobre el melanoma. Cabe mencionar que, como las variables fueron estandarizadas previamente, podemos compararlos en términos absolutos sin tomar en cuenta la escala de la variable original.
+
+En primer lugar, el coeficiente de la variable de género (`sex`) es positivo y es razonablemente significativo. Dado que esta variable vale 0 para mujeres y 1 para hombres, un coeficiente positivo indica que los hombres tienen una mayor probabilidad de morir de este padecimiento que las mujeres.
+
+Un segundo punto clave es la presencia de úlceras (`ulcer`) en el paciente. El coeficiente de esta variable es el segundo más grande y es bastante significativo (valor $p < 0.05$), lo que nos hace creer que la presencia de úlceras es crítica en la mortalidad de la enfermedad. Habría que tomar esto muy en serio y buscar úlceras con mucha dedicación en pacientes que tengan melanoma con el fin de identificar los casos con mayor riesgo y así poderlos tratar mejor. Además de esto, sería posible investigar las úlceras con más cuidado para entender por qué tienen un efecto tan grande en la mortalidad del melanoma.
+
+El último punto que podemos concluir de este modelo es que el melanoma es muy agresivo al principio, pero si se detecta a tiempo, es muy posible que el paciente sobreviva (al menos al melanoma). Esta conclusión fue obtenida del hecho de que la variable de tiempo (`time`) tenga un coeficiente tan negativo y tan significativo, pues esto implica que tiempos de supervivencia cortos son casi garantía de haber muerto de melanoma. Además de ello, podríamos pensar que, una vez superada la crisis inicial, la probabilidad de recaer es muy baja y por lo tanto la mortalidad de la enfermedad es menor. Se puede observar esto también en la siguiente gráfica.
+
+```{r, echo=FALSE, fig.align='center'}
+dat %>%
+  mutate(g = cut(time, 5, dig.lab = 5)) %>%
+  group_by(g, status) %>%
+  summarise(count = n()) %>%
+  ggplot(aes(g, count, fill=status)) +
+  geom_bar(stat='identity', width=0.5) +
+  theme(axis.text.x = element_text(angle=45, vjust=0.5)) +
+  scale_fill_manual(values=c("#0057e7","#d62d20","#ffa700","#008744")) +
+  labs(title='Situación de los pacientes\nal final de la observación',
+       x='Tiempo (en intervalos)',
+       y='Número de pacientes')
+
+```
+
+
+# 4. Resultados
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, error=FALSE}
+df <- data.frame(Modelo=c("GLM frecuentista logit",
+                          "GLM bayesiano logit",
+                          "GLM bayesiano probit",
+                          "GLM bayesiano LASSO"),
+                 DIC=c(paste("AIC",round(aic,3),sep=" "), 
+                       round(liliana$logit_noinformativo$dic,3),
+                       round(liliana$probit_noinformativo$dic,3),
+                       round(sim$BUGSoutput$DIC, 3)),
+                 AUC=c(round(auc(rte),3),
+                       round(liliana$logit_noinformativo$auc_test,3),
+                       round(liliana$probit_noinformativo$auc_test,3),
+                       round(auc(r),3)),
+                 'Variables significativas'=rep("Tiempo, presencia de úlcera",4))
+
+kable(df,digits = 3, caption='Resultados de los modelos')
+```
+
+El modelo GLM con regularización LASSO bajo enfoque bayesiano es el modelo con mejor DIC, sin embargo el de mejor desempeño con los datos de prueba fue el modelo GLM con liga probit bajo enfoque bayesiano. 
+
+
+# 5. Conclusiones 
+
++ La hipótesis principal de que el espesor de un tumor y/o si el tumor está ulcerado son variables que ayudan a pronosticar si la persona morirá por el melanoma es parcialmente érronea pues en los 4 modelos que se realizaron, la variable `thickness` no resultó significativa aunque la variable `ulcer` si lo fue indicando que la presencia de úlceras en el tumor es un fuerte indicador de la agresividad del melanoma.
+
++ En los 4 modelos realizados las variables `time` y `ulcer` fueron las más significativas. 
+
++ Los primeros 3 años después de la operación del melanoma son críticos para la enfermedad por lo que se recomienda prestar atención a cualquier síntoma en ese periodo.
+
++ El riesgo para hombres es ligeramente mayor que para las mujeres. 
+
++ El modelo de regresión lineal generalizada con regularización LASSO bajo enfoque bayesiano fue el modelo con mejor DIC.
+
++ El modelo de regresión lineal generalizada con liga probit bajo enfoque bayesiano fue el modelo con el mejor desempeño (AUC) en los datos de prueba teniendo 90% del área bajo la curva.
+
+
+
+
+
+# Bibliografía 
+
+
+
+
+
+
+
+
