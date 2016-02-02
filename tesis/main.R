@@ -1,7 +1,7 @@
-library(tm)
-library(rjson)
-library(dplyr)
-library(stringr)
+suppressPackageStartupMessages(library(tm))
+suppressPackageStartupMessages(library(rjson))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(stringr))
 
 # s <- VCorpus(DirSource(directory="corpus",
 #           encoding="UTF-8",

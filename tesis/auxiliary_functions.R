@@ -1,8 +1,8 @@
-library(stringr)
-library(tm)
-library(dplyr)
-library(tidyr)
-
+suppressPackageStartupMessages(library(stringr))
+suppressPackageStartupMessages(library(tm))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(tidyr))
+suppressPackageStartupMessages(library(SnowballC))
 
 ##eliminate duplicated strings within the same query string
 eliminateDuplicated <- function(x) {
@@ -40,7 +40,7 @@ cleaningCorpus <- function(volatil.corpus){
   s_lower <- tm_map(extra_whitespace, content_transformer(tolower))
   #stem each token
   s_steam <- tm_map(s_lower, stemDocument)
-  
+
   s_steam
 }
 
