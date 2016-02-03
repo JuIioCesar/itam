@@ -22,8 +22,9 @@ shinyUI(
     hr(),
     
     h4("Etiquetas sugeridas"),
+
+    dataTableOutput("suggested.tags")
+
     
-    #tags$textarea(id="suggested.tags", rows=15, cols=40, value="suggested")
-    textOutput("suggested.tags")
   )
 )
