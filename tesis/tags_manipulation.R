@@ -53,4 +53,4 @@ tags.df.matrix <- data.frame(rownames(tags.matrix),
 names(tags.df.matrix) <- c("term",paste0("doc",colnames(tags.matrix)))
 
 
-save(tags.df.matrix, file="tags.df.matrix.RData")
+save(tags.df.matrix, file="../tags.df.matrix.RData")

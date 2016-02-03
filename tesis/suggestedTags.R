@@ -4,7 +4,7 @@ suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(stringr))
 
 
-load("tags.df.matrix.RData")
+load("../tags.df.matrix.RData")
 source("../auxiliary_functions.R")
 
 getTags <- function(content) {
@@ -46,12 +46,15 @@ getTags <- function(content) {
     ranking <- rbind(ranking, ranks)
   }
   
-  
+  suggested.tag <- character()
   for(i in 1:length(rownames(ranks))){
-     ranking$tag <- content(tags.cleaned.corpus[[rownames(ranks)[i]]])
+     suggested.tag <- rbind(suggested.tag,
+                            content(tags.cleaned.corpus[[rownames(ranks)[i]]]))
   }
   
-  ranking$tag
+  ranking$tag <- suggested.tag
+  
+  ranking
 }
 
 
