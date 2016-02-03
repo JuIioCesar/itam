@@ -134,7 +134,7 @@ fValue <- function(document, doc.matrix, term){
 
 
 ##first term of the bm25 formula 
-t1Value <- function(n){
+t1Value <- function(n, r, R, N){
   t1_num <- (r+0.5)*(N - n - R + r +0.5)
   t1_denom <- (n - r +0.5)*(R - r +0.5)
   t1 <- log(t1_num/t1_denom)
@@ -145,7 +145,7 @@ t1Value <- function(n){
 
 
 ##second term of the bm25 formula ((k1+1)*f)/(k1+f)
-t2Value <- function(term, doc.matrix, K, avgdl, dlValues){
+t2Value <- function(term, doc.matrix, K, avgdl, dlValues, k1){
   if(length(grep(paste0("^", term, "$"), doc.matrix$term)) > 0) {
     frequencies <- doc.matrix[grep(paste0("^",term,"$"), doc.matrix$term),]
     docs <- gather(frequencies, doc, freq, - term)
@@ -185,7 +185,7 @@ bm25 <- function(r=0, R=0, k1=1.2, k2=100, b=0.75,
   
   
   #t1 values
-  t1.values <- sapply(nValues, function(x) t1Value(x))
+  t1.values <- sapply(nValues, function(x) t1Value(x, r, R, N))
   t1.values.df <- data.frame(
     #doc=paste0("doc",seq(1:N)),
     sapply(t1.values, function(x) rep(x, N)))
@@ -194,7 +194,7 @@ bm25 <- function(r=0, R=0, k1=1.2, k2=100, b=0.75,
   
   #t2 values
   t2.values <- as.data.frame(sapply(terms, function(x) 
-    t2Value(x, doc.matrix, Ks, avgdl, dlValues)))
+    t2Value(x, doc.matrix, Ks, avgdl, dlValues, k1)))
   
   qf.values <- unlist(table(str_split(query, " ")))
   

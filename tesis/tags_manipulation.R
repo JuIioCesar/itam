@@ -3,12 +3,8 @@ suppressPackageStartupMessages(library(rjson))
 suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(stringr))
 
-# s <- VCorpus(DirSource(directory="corpus",
-#           encoding="UTF-8",
-#           pattern="cnnmexico",
-#           mode="text"),
-#         readerControl=list(language="es"))
-source("auxiliary_functions.R")
+
+source("../auxiliary_functions.R")
 
 #####################################
 ####tags 
@@ -17,7 +13,7 @@ from.json <- function(x) {
   line$internalName
 }
 
-json.tags <- read.csv("tags-catalog.json", header=F,
+json.tags <- read.csv("../tags-catalog.json", header=F,
                       sep="\n", stringsAsFactors=F, quote="\'")
 
 #from json to character

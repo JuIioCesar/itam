@@ -3,25 +3,14 @@ suppressPackageStartupMessages(library(rjson))
 suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(stringr))
 
-# s <- VCorpus(DirSource(directory="corpus",
-#           encoding="UTF-8",
-#           pattern="cnnmexico",
-#           mode="text"),
-#         readerControl=list(language="es"))
-source("auxiliary_functions.R")
 
-
-#######
-##content
-#load("file_content.RData")
-
-###make corpus of news content
-#content.vector.source <- VectorSource(x=file.content$content)
+load("tags.df.matrix.RData")
+source("../auxiliary_functions.R")
 
 getTags <- function(content) {
   content.vector.source <- VectorSource(content)
   corpus.content <- VCorpus(content.vector.source, 
-               readerControl=list(language="es"))
+                            readerControl=list(language="es"))
   
   corpus.cleaned <- cleaningCorpus(corpus.content)
   
@@ -33,7 +22,7 @@ getTags <- function(content) {
   document.length <- integer()
   for(i in 1:N){
     document.length <- rbind(document.length, 
-                 length(unlist(str_split(as.character(content(tags.cleaned)[[i]]), " "))))
+                             length(unlist(str_split(as.character(content(tags.cleaned)[[i]]), " "))))
   }
   dlValues <- as.integer(document.length)
   names(dlValues) <- paste0("doc", seq(1:N))
@@ -51,19 +40,18 @@ getTags <- function(content) {
     query <- as.character(corpus.cleaned[[i]])
     
     ranks <- bm25(N=N, dlValues=dlValues, avgdl=avgdl, 
-         doc.matrix=tags.df.matrix, query=query)
+                  doc.matrix=tags.df.matrix, query=query)
     print(proc.time() - ptm)
     ranks$query <- rep(i,10)
     ranking <- rbind(ranking, ranks)
   }
   
   
-  suggested.tags <- character()
   for(i in 1:length(rownames(ranks))){
-    suggested.tags <- rbind(suggested.tags, 
-                            content(tags.cleaned.corpus[[rownames(ranks)[i]]]))
+     ranking$tag <- content(tags.cleaned.corpus[[rownames(ranks)[i]]])
   }
-
-  suggested.tags
+  
+  ranking$tag
 }
+
 
