@@ -39,9 +39,10 @@ cleaningCorpus <- function(volatil.corpus){
   #to lower case
   s_lower <- tm_map(extra_whitespace, content_transformer(tolower))
   #stem each token
-  s_steam <- tm_map(s_lower, stemDocument)
+  #s_steam <- tm_map(s_lower, stemDocument)
 
-  s_steam
+  #s_steam
+  s_lower
 }
 
 
@@ -217,6 +218,6 @@ bm25 <- function(r=0, R=0, k1=1.2, k2=100, b=0.75,
   bm25s$bm25 <- apply(bms[,2:length(terms)], 1, function(x) sum(x))
   bm25s <- bm25s[with(bm25s, order(-bm25)),]
   
-  bm25s[1:10,]
+  bm25s[1:20,]
 }
 

@@ -42,7 +42,7 @@ getTags <- function(content) {
     ranks <- bm25(N=N, dlValues=dlValues, avgdl=avgdl, 
                   doc.matrix=tags.df.matrix, query=query)
     print(proc.time() - ptm)
-    ranks$query <- rep(i,10)
+    #ranks$query <- rep(i,10)
     ranking <- rbind(ranking, ranks)
   }
   
@@ -54,6 +54,7 @@ getTags <- function(content) {
   
   ranking$tag <- suggested.tag
   
+  #hacer match a >60% de los tags seleccionados
   ranking
 }
 
