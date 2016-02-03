@@ -59,11 +59,12 @@ names(tags.df.matrix) <- c("term",paste0("doc",colnames(tags.matrix)))
 
 #######
 ##content
-load("file_content.RData")
+#load("file_content.RData")
 
 ###make corpus of news content
-content.vector.source <- VectorSource(x=file.content$content)
+#content.vector.source <- VectorSource(x=file.content$content)
 
+content.vector.source <- VectorSource(content)
 corpus.content <- VCorpus(content.vector.source, 
              readerControl=list(language="es"))
 
