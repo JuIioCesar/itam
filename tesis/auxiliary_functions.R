@@ -33,7 +33,10 @@ cleaningCorpus <- function(volatil.corpus){
   #eliminate numbers
   without_numbers <- tm_map(without_punctuation, removeNumbers)
   #eliminate stopwords 
-  without_stopwords <- tm_map(without_numbers, removeWords, stopwords("spanish"))
+  #without_stopwords <- tm_map(without_numbers, removeWords, stopwords("spanish"))
+  exceptions <- c("estado","estados")
+  custom_stopwords <- setdiff(stopwords("spanish"), exceptions)
+  without_stopwords <- tm_map(without_numbers, removeWords, custom_stopwords)
   #eliminate extra whitespaces 
   extra_whitespace <- tm_map(without_stopwords, stripWhitespace)
   #to lower case

@@ -45,17 +45,18 @@ getTags <- function(content) {
     #ranks$query <- rep(i,10)
     ranking <- rbind(ranking, ranks)
   }
-  
-  suggested.tag <- character()
-  for(i in 1:length(rownames(ranks))){
-     suggested.tag <- rbind(suggested.tag,
-                            content(tags.cleaned.corpus[[rownames(ranks)[i]]]))
+
+  suggested.tags <- as.character()
+  for(i in 1:dim(ranking)[1]) {
+    suggested.tags <- rbind(suggested.tags,
+      content(tags.cleaned[[as.numeric(rownames(ranking)[i])]]))
   }
   
-  ranking$tag <- suggested.tag
+  ranking$tag <- suggested.tags
   
-  #hacer match a >60% de los tags seleccionados
-  ranking
+  suggested.tags <- data.frame(suggested.tag=ranking$tag,
+                               bm25=ranking$bm25)
+  
 }
 
 
