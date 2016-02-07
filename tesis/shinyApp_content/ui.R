@@ -23,8 +23,13 @@ shinyUI(
     
     h4("Etiquetas sugeridas"),
 
-    dataTableOutput("suggested.tags")
-
+    dataTableOutput("suggested.tags"),
+    
+    hr(),
+    
+    h4("Refinado"),
+    
+    dataTableOutput("refined.tags")
     
   )
 )

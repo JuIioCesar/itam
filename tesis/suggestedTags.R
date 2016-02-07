@@ -55,17 +55,19 @@ getTags <- function(content) {
   
   suggested.tags <- data.frame(suggested.tag=ranking$original,
                                bm25=ranking$bm25)
+  save(ranking, file="../ranking.RData")
+  save(corpus.cleaned, file="../corpusCleaned.RData")
   
   suggested.tags
-  
-  
-  
 }
 
 
 #once we have the suggested tags we refine the hierarchy to suggest
 #if 60% of the terms in the hierarchy are on the query that hierarchy is correct
-refineHierarchy <- function(ranking, corpus.cleaned) {
+refineHierarchy <- function() {
+  load("../ranking.RData")
+  load("../corpusCleaned.RData")
+  
   corpus.matrix <- TermDocumentMatrix(corpus.cleaned)
   
   hierarchies <- sapply(ranking$original, function(x) 
@@ -80,7 +82,7 @@ refineHierarchy <- function(ranking, corpus.cleaned) {
   terms <- sapply(last.terms.cleaned, function(x)
     str_split(content(x), " "))
   
-  holdHierarchy <- numeric()
+  hold.hierarchy <- numeric()
   for(i in 1:length(terms)) {
     num.terms <- length(terms[[i]])
     freqs <- sapply(terms[[i]], function(x) 
@@ -89,7 +91,12 @@ refineHierarchy <- function(ranking, corpus.cleaned) {
                finally={print(x)}))
     freqs.bin <- ifelse(freqs > 0, 1,0)
     prop <- ifelse(sum(freqs.bin)/num.terms >= 0.6, 1, 0) 
-    holdHierarchy <- rbind(holdHierarchy, prop)
+    hold.hierarchy <- rbind(hold.hierarchy, prop)
   }
   
+  refined <- ranking[which(hold.hierarchy >0),]
+  refined.tags <- data.frame(suggested.tag=refined$original, 
+                             bm25=refined$bm25)
+  
+  refined.tags
 }
