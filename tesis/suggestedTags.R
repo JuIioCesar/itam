@@ -46,16 +46,14 @@ getTags <- function(content) {
     ranking <- rbind(ranking, ranks)
   }
 
-  suggested.tags <- as.character()
-  for(i in 1:dim(ranking)[1]) {
-    suggested.tags <- rbind(suggested.tags,
-      content(tags.cleaned[[as.numeric(rownames(ranking)[i])]]))
-  }
+  ranking$tag <- tags.unique[as.numeric(rownames(ranking))]
+  ranking$original <- sapply(ranking$tag, function(x)
+    tags.df$tag[grep(paste0("^",x,"$"), tags.df$clean.unique)[1]])
   
-  ranking$tag <- suggested.tags
-  
-  suggested.tags <- data.frame(suggested.tag=ranking$tag,
+  suggested.tags <- data.frame(suggested.tag=ranking$original,
                                bm25=ranking$bm25)
+  
+  suggested.tags
   
 }
 
