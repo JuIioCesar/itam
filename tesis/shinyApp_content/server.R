@@ -15,8 +15,12 @@ shinyServer(function(input, output) {
     getTags(ntext())
   })
   
-  output$refined.tags <- renderDataTable({
+  refinement <- eventReactive(input$refine.button, {
     refineHierarchy()
+  })
+  
+  output$refined.tags <- renderDataTable({
+    refinement()
   })
   
 })

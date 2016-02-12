@@ -14,10 +14,11 @@ shinyUI(
   
     h4("Ingrese el contenido que será etiquetado"),
     
-    
     tags$textarea(id="input.content", rows=15, cols=100, value=""),
       
     actionButton(inputId="tag.button", label="Etiquetar"),
+    
+    actionButton(inputId="refine.button", label="Refinar"),
     
     hr(),
     
