@@ -4,12 +4,12 @@ suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(stringr))
 
 
-load("../tags.df.matrix.RData")
-source("../auxiliary_functions.R")
-
-
 ##
 getTags <- function(content) {
+  load("../tags.df.matrix.RData")
+  source("../auxiliary_functions.R")
+  
+  
   content.vector.source <- VectorSource(content)
   corpus.content <- VCorpus(content.vector.source, 
                             readerControl=list(language="es"))
@@ -90,7 +90,7 @@ refinationAnalysis <- function(elements) {
 
 #once we have the suggested tags we refine the hierarchy to suggest
 #if 60% of the terms in the hierarchy are on the query that hierarchy is correct
-refineHierarchy <- function() {
+refineHierarchy <- function(content) {
   load("../ranking.RData")
   load("../corpusCleaned.RData")
   
@@ -112,6 +112,7 @@ refineHierarchy <- function() {
     } 
   }
   
+  cat(length(hierarchies))
   hierarchies <- hierarchies[which(hierarchy.level > 0)]
   hierarchy.level <- hierarchy.level[which(hierarchy.level > 0)]
   hierarchy.ref <- character()
