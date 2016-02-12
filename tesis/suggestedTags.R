@@ -3,13 +3,11 @@ suppressPackageStartupMessages(library(rjson))
 suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(stringr))
 
+load("../tags.df.matrix.RData")
+source("../auxiliary_functions.R")
 
 ##
 getTags <- function(content) {
-  load("../tags.df.matrix.RData")
-  source("../auxiliary_functions.R")
-  
-  
   content.vector.source <- VectorSource(content)
   corpus.content <- VCorpus(content.vector.source, 
                             readerControl=list(language="es"))
@@ -63,21 +61,21 @@ getTags <- function(content) {
 
 
 ####
-refinationAnalysis <- function(elements) {
+refinationAnalysis <- function(elements, corpus.matrix) {
   last.terms.source <- VectorSource(x=elements)
   last.terms.corpus <- VCorpus(last.terms.source, 
                                readerControl=list(language="es"))
   last.terms.cleaned <- cleaningCorpus(last.terms.corpus)
   
-  terms <- sapply(last.terms.cleaned, function(x)
+  terms.new <- sapply(last.terms.cleaned, function(x)
     str_split(content(x), " "))
   
-  
-  num.terms <- length(unlist(terms))
-  freqs <- sapply(terms[[1]], function(x) 
+  num.terms <- length(unlist(terms.new))
+  freqs <- sapply(terms.new[[1]], function(x) 
     tryCatch({inspect(corpus.matrix[x,])[1,1]}, 
              error=function(err){return(0)}, 
              finally={print(x)}))
+  
   freqs.bin <- ifelse(freqs > 0, 1,0)
   prop <- ifelse(sum(freqs.bin)/num.terms >= 0.6, 1, 0) 
   
@@ -90,12 +88,11 @@ refinationAnalysis <- function(elements) {
 
 #once we have the suggested tags we refine the hierarchy to suggest
 #if 60% of the terms in the hierarchy are on the query that hierarchy is correct
-refineHierarchy <- function(content) {
+refineHierarchy <- function() {
   load("../ranking.RData")
   load("../corpusCleaned.RData")
   
   corpus.matrix <- TermDocumentMatrix(corpus.cleaned)
-
   
   hierarchies <- sapply(ranking$original, function(x) 
       str_split(x, "\\."))
@@ -104,21 +101,22 @@ refineHierarchy <- function(content) {
   for(i in 1:length(hierarchies)){
     terms <- unlist(hierarchies[i])
     for(j in length(terms):1) {
-      refinement <- refinationAnalysis(terms[j])
-      if(refinement == 1){
+      refinement <- refinationAnalysis(terms[j], corpus.matrix)
+      if(as.numeric(refinement) == 1){
           hierarchy.level[i] <- j
           j <- 1
       } 
     } 
   }
   
-  cat(length(hierarchies))
-  hierarchies <- hierarchies[which(hierarchy.level > 0)]
-  hierarchy.level <- hierarchy.level[which(hierarchy.level > 0)]
+  cat(hierarchy.level)
+  
+  hierarchies.new <- hierarchies[which(hierarchy.level > 0)]
+  hierarchy.level.new <- hierarchy.level[which(hierarchy.level > 0)]
   hierarchy.ref <- character()
   
-  for(i in 1:length(hierarchy.level)) {
-    hierarchy.refined <- hierarchies[[i]][1:hierarchy.level[i]]
+  for(i in 1:length(hierarchies.new)) {
+    hierarchy.refined <- hierarchies.new[[i]][1:hierarchy.level.new[i]]
     tag.refined <- ""
     for(j in 1:hierarchy.level[i]){
       ifelse(j == 1,
