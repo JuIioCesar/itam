@@ -62,6 +62,32 @@ getTags <- function(content) {
 }
 
 
+####
+refinationAnalysis <- function(elements) {
+  last.terms.source <- VectorSource(x=elements)
+  last.terms.corpus <- VCorpus(last.terms.source, 
+                               readerControl=list(language="es"))
+  last.terms.cleaned <- cleaningCorpus(last.terms.corpus)
+  
+  terms <- sapply(last.terms.cleaned, function(x)
+    str_split(content(x), " "))
+  
+  
+  num.terms <- length(unlist(terms))
+  freqs <- sapply(terms[[1]], function(x) 
+    tryCatch({inspect(corpus.matrix[x,])[1,1]}, 
+             error=function(err){return(0)}, 
+             finally={print(x)}))
+  freqs.bin <- ifelse(freqs > 0, 1,0)
+  prop <- ifelse(sum(freqs.bin)/num.terms >= 0.6, 1, 0) 
+  
+  return(prop)
+}
+
+
+
+
+
 #once we have the suggested tags we refine the hierarchy to suggest
 #if 60% of the terms in the hierarchy are on the query that hierarchy is correct
 refineHierarchy <- function() {
@@ -69,34 +95,51 @@ refineHierarchy <- function() {
   load("../corpusCleaned.RData")
   
   corpus.matrix <- TermDocumentMatrix(corpus.cleaned)
+
   
   hierarchies <- sapply(ranking$original, function(x) 
       str_split(x, "\\."))
-  last.terms <- sapply(hierarchies, function(x) x[length(x)])
   
-  last.terms.source <- VectorSource(x=last.terms)
-  last.terms.corpus <- VCorpus(last.terms.source, 
-                         readerControl=list(language="es"))
-  last.terms.cleaned <- cleaningCorpus(last.terms.corpus)
-  
-  terms <- sapply(last.terms.cleaned, function(x)
-    str_split(content(x), " "))
-  
-  hold.hierarchy <- numeric()
-  for(i in 1:length(terms)) {
-    num.terms <- length(terms[[i]])
-    freqs <- sapply(terms[[i]], function(x) 
-      tryCatch({inspect(corpus.matrix[x,])[1,1]}, 
-               error=function(err){return(0)}, 
-               finally={print(x)}))
-    freqs.bin <- ifelse(freqs > 0, 1,0)
-    prop <- ifelse(sum(freqs.bin)/num.terms >= 0.6, 1, 0) 
-    hold.hierarchy <- rbind(hold.hierarchy, prop)
+  hierarchy.level <- rep(0, length(hierarchies))
+  for(i in 1:length(hierarchies)){
+    terms <- unlist(hierarchies[i])
+    for(j in length(terms):1) {
+      refinement <- refinationAnalysis(terms[j])
+      if(refinement == 1){
+          hierarchy.level[i] <- j
+          j <- 1
+      } 
+    } 
   }
   
-  refined <- ranking[which(hold.hierarchy >0),]
-  refined.tags <- data.frame(suggested.tag=refined$original, 
-                             bm25=refined$bm25)
+  hierarchies <- hierarchies[which(hierarchy.level > 0)]
+  hierarchy.level <- hierarchy.level[which(hierarchy.level > 0)]
+  hierarchy.ref <- character()
   
-  refined.tags
+  for(i in 1:length(hierarchy.level)) {
+    hierarchy.refined <- hierarchies[[i]][1:hierarchy.level[i]]
+    tag.refined <- ""
+    for(j in 1:hierarchy.level[i]){
+      ifelse(j == 1,
+        tag.refined <- paste0(hierarchy.refined[j]),
+        tag.refined <- paste0(tag.refined, ".", hierarchy.refined[j])
+      )
+    }
+    hierarchy.ref <- rbind(hierarchy.ref, tag.refined)
+  }
+  
+  hierarchy.ref <- unique(hierarchy.ref)
+  new.hierarchy <- sapply(hierarchy.ref, function(x) grep(paste0("^",x), ranking$original))
+  refined.suggests <- sapply(new.hierarchy, function(x) max(ranking$bm25[unlist(x)]))
+  
+  rf.sug <- data.frame(refined.tag=names(refined.suggests),
+             bm25=refined.suggests)
+  
+  rf.sug <- rf.sug[with(rf.sug, order(-bm25)),]
+  
+  return(rf.sug)
 }
+
+
+
+
