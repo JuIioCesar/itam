@@ -50,9 +50,14 @@ getTags <- function(content) {
   ranking$original <- sapply(ranking$tag, function(x)
     tags.df$tag[grep(paste0("^",x,"$"), tags.df$clean.unique)[1]])
   
-  
-  suggested.tags <- data.frame(suggested.tag=ranking$original,
+  if(sum(ranking$bm25) >0) {
+    suggested.tags <- data.frame(suggested.tag=ranking$original,
                                bm25=ranking$bm25)
+  } else{
+    suggested.tags <- data.frame(suggested.tag="None",
+                                 bm25=0)
+  }
+  
   save(ranking, file="../ranking.RData")
   save(corpus.cleaned, file="../corpusCleaned.RData")
   
@@ -94,47 +99,52 @@ refineHierarchy <- function() {
   
   corpus.matrix <- TermDocumentMatrix(corpus.cleaned)
   
-  hierarchies <- sapply(ranking$original, function(x) 
-      str_split(x, "\\."))
-  
-  hierarchy.level <- rep(0, length(hierarchies))
-  for(i in 1:length(hierarchies)){
-    terms <- unlist(hierarchies[i])
-    for(j in length(terms):1) {
-      refinement <- refinationAnalysis(terms[j], corpus.matrix)
-      if(as.numeric(refinement) == 1){
-          hierarchy.level[i] <- j
-          j <- 1
+  if(sum(ranking$bm25) > 0) {
+    hierarchies <- sapply(ranking$original, function(x) 
+        str_split(x, "\\."))
+    
+    hierarchy.level <- rep(0, length(hierarchies))
+    for(i in 1:length(hierarchies)){
+      terms <- unlist(hierarchies[i])
+      for(j in length(terms):1) {
+        refinement <- refinationAnalysis(terms[j], corpus.matrix)
+        if(as.numeric(refinement) == 1){
+            hierarchy.level[i] <- j
+            j <- 1
+        } 
       } 
-    } 
-  }
-  
-  cat(hierarchy.level)
-  
-  hierarchies.new <- hierarchies[which(hierarchy.level > 0)]
-  hierarchy.level.new <- hierarchy.level[which(hierarchy.level > 0)]
-  hierarchy.ref <- character()
-  
-  for(i in 1:length(hierarchies.new)) {
-    hierarchy.refined <- hierarchies.new[[i]][1:hierarchy.level.new[i]]
-    tag.refined <- ""
-    for(j in 1:hierarchy.level[i]){
-      ifelse(j == 1,
-        tag.refined <- paste0(hierarchy.refined[j]),
-        tag.refined <- paste0(tag.refined, ".", hierarchy.refined[j])
-      )
     }
-    hierarchy.ref <- rbind(hierarchy.ref, tag.refined)
+    
+    
+    
+    hierarchies.new <- hierarchies[which(hierarchy.level > 0)]
+    hierarchy.level.new <- hierarchy.level[which(hierarchy.level > 0)]
+    hierarchy.ref <- character()
+    
+    for(i in 1:length(hierarchies.new)) {
+      hierarchy.refined <- hierarchies.new[[i]][1:hierarchy.level.new[i]]
+      tag.refined <- ""
+      for(j in 1:hierarchy.level.new[i]){
+        ifelse(j == 1,
+          tag.refined <- paste0(hierarchy.refined[j]),
+          tag.refined <- paste0(tag.refined, ".", hierarchy.refined[j])
+        )
+      }
+      hierarchy.ref <- rbind(hierarchy.ref, tag.refined)
+    }
+    
+    hierarchy.ref <- unique(hierarchy.ref)
+    new.hierarchy <- sapply(hierarchy.ref, function(x) grep(paste0("^",x), ranking$original))
+    refined.suggests <- sapply(new.hierarchy, function(x) max(ranking$bm25[unlist(x)]))
+    
+    rf.sug <- data.frame(refined.tag=names(refined.suggests),
+               bm25=refined.suggests)
+    
+    rf.sug <- rf.sug[with(rf.sug, order(-bm25)),]
+  } else{
+    rf.sug <- data.frame(refined.tag="None",
+                         bm25=0)
   }
-  
-  hierarchy.ref <- unique(hierarchy.ref)
-  new.hierarchy <- sapply(hierarchy.ref, function(x) grep(paste0("^",x), ranking$original))
-  refined.suggests <- sapply(new.hierarchy, function(x) max(ranking$bm25[unlist(x)]))
-  
-  rf.sug <- data.frame(refined.tag=names(refined.suggests),
-             bm25=refined.suggests)
-  
-  rf.sug <- rf.sug[with(rf.sug, order(-bm25)),]
   
   return(rf.sug)
 }

@@ -32,20 +32,21 @@ cleaningCorpus <- function(volatil.corpus){
   without_punctuation <- tm_map(volatil.corpus, removePunctuation)
   #eliminate numbers
   without_numbers <- tm_map(without_punctuation, removeNumbers)
+  #to lower case
+  s_lower <- tm_map(without_numbers, content_transformer(tolower))
   #eliminate stopwords 
   #without_stopwords <- tm_map(without_numbers, removeWords, stopwords("spanish"))
   exceptions <- c("estado","estados")
   custom_stopwords <- setdiff(stopwords("spanish"), exceptions)
-  without_stopwords <- tm_map(without_numbers, removeWords, custom_stopwords)
+  without_stopwords <- tm_map(s_lower, removeWords, custom_stopwords)
   #eliminate extra whitespaces 
   extra_whitespace <- tm_map(without_stopwords, stripWhitespace)
-  #to lower case
-  s_lower <- tm_map(extra_whitespace, content_transformer(tolower))
+  
   #stem each token
   #s_steam <- tm_map(s_lower, stemDocument)
 
   #s_steam
-  s_lower
+  extra_whitespace
 }
 
 
@@ -218,7 +219,12 @@ bm25 <- function(r=0, R=0, k1=1.2, k2=100, b=0.75,
 
   bm25s <- data.frame(doc=paste0("doc", seq(1:N)),
                       bm25=rep(0, N))
-  bm25s$bm25 <- apply(bms[,2:length(terms)], 1, function(x) sum(x))
+  if(length(terms) > 1) {
+    bm25s$bm25 <- apply(bms[,2:length(terms)], 1, function(x) sum(x))
+  } else {
+    bm25s$bm25 <- bms[,2]
+  }
+  
   bm25s <- bm25s[with(bm25s, order(-bm25)),]
   
   bm25s[1:20,]
