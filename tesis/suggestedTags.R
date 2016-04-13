@@ -82,7 +82,12 @@ refinationAnalysis <- function(elements, corpus.matrix) {
              finally={print(x)}))
   
   freqs.bin <- ifelse(freqs > 0, 1,0)
-  prop <- ifelse(sum(freqs.bin)/num.terms >= 0.6, 1, 0) 
+  #if the length of the terms are even then the probability for succes should be 50 and not 60%
+  if(num.terms %% 2 == 0) {
+    prop <- ifelse(sum(freqs.bin)/num.terms >= 0.5, 1, 0)
+  }else{
+    prop <- ifelse(sum(freqs.bin)/num.terms >= 0.6, 1, 0) 
+  }
   
   return(prop)
 }
@@ -99,6 +104,7 @@ refineHierarchy <- function() {
   
   corpus.matrix <- TermDocumentMatrix(corpus.cleaned)
   
+  #validate that the ranking is greater than 0... it actually gave some suggestions
   if(sum(ranking$bm25) > 0) {
     hierarchies <- sapply(ranking$original, function(x) 
         str_split(x, "\\."))
@@ -119,8 +125,8 @@ refineHierarchy <- function() {
     
     hierarchies.new <- hierarchies[which(hierarchy.level > 0)]
     hierarchy.level.new <- hierarchy.level[which(hierarchy.level > 0)]
-    hierarchy.ref <- character()
     
+    hierarchy.ref <- character()
     for(i in 1:length(hierarchies.new)) {
       hierarchy.refined <- hierarchies.new[[i]][1:hierarchy.level.new[i]]
       tag.refined <- ""
