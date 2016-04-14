@@ -66,7 +66,7 @@ getTags <- function(content) {
 
 
 ####
-refinationAnalysis <- function(elements, corpus.matrix) {
+pruningAnalysis <- function(elements, corpus.matrix) {
   last.terms.source <- VectorSource(x=elements)
   last.terms.corpus <- VCorpus(last.terms.source, 
                                readerControl=list(language="es"))
@@ -96,9 +96,10 @@ refinationAnalysis <- function(elements, corpus.matrix) {
 
 
 
-#once we have the suggested tags we refine the hierarchy to suggest
-#if 60% of the terms in the hierarchy are on the query that hierarchy is correct
-refineHierarchy <- function() {
+#once we have the suggested tags we refine their hierarchy to suggest the abstraction
+#of each tag, if the lenght of the terms to verify are even then is enough that 50% of
+#them make match with the content, else 60% must match to pass the best abstraction
+pruneHierarchy <- function() {
   load("../ranking.RData")
   load("../corpusCleaned.RData")
   
@@ -113,7 +114,7 @@ refineHierarchy <- function() {
     for(i in 1:length(hierarchies)){
       terms <- unlist(hierarchies[i])
       for(j in length(terms):1) {
-        refinement <- refinationAnalysis(terms[j], corpus.matrix)
+        refinement <- pruningAnalysis(terms[j], corpus.matrix)
         if(as.numeric(refinement) == 1){
             hierarchy.level[i] <- j
             j <- 1

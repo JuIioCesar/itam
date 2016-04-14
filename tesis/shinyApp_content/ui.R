@@ -14,7 +14,8 @@ shinyUI(
     sidebarLayout(
       sidebarPanel(
         actionButton(inputId="tag.button", label="Etiquetar"),
-        actionButton(inputId="refine.button", label="Refinar")
+        actionButton(inputId="refine.button", label="Podar etiquetas")#,
+        #actionButton(inputId="clean.button", label="Limpiar")
       ),
       
       mainPanel(
@@ -23,7 +24,7 @@ shinyUI(
                    tags$textarea(id="input.content", rows=15, cols=100, value="")
           ),
           tabPanel("Etiquetas recomendadas", dataTableOutput("suggested.tags")),
-          tabPanel("Refinado", dataTableOutput("refined.tags"))
+          tabPanel("Etiquetas podadas", dataTableOutput("refined.tags"))
         )
       )
     )

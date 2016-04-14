@@ -15,13 +15,15 @@ shinyServer(function(input, output) {
     getTags(ntext())
   })
   
-  refinement <- eventReactive(input$refine.button, {
-    refineHierarchy()
+  pruning <- eventReactive(input$refine.button, {
+    pruneHierarchy()
   })
   
   output$refined.tags <- renderDataTable({
-    refinement()
+    pruning()
   })
+  
+
   
   
 })
