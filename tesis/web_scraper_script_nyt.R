@@ -1,7 +1,6 @@
 library(RCurl)
 library(XML)
 library(lubridate)
-library(dplyr)
 
 ###getting the actual news
 getNews <- function(x){
@@ -10,11 +9,11 @@ getNews <- function(x){
   
   node_property <- xpathApply(txt_x, "//meta", xmlGetAttr, "property")
   #description
-  description_node <- grep("description", node_property)
+  description_node <- grep("og:description", node_property)
   description <- xpathApply(txt_x,"//meta", xmlGetAttr, "content")[[description_node]]
   
   #title
-  title_node <- grep("title", node_property)
+  title_node <- grep("og:title", node_property)
   title <- xpathApply(txt_x,"//meta", xmlGetAttr, "content")[[title_node]]
   
   content_html_style <- xpathSApply(txt_x, "//div/p", xmlValue)
@@ -39,21 +38,38 @@ extractNews <- function(specific_url){
   return(info)
 }
 
+
+
+getUrls <- function(base_url) {
+  url <- getURL(base_url)
+  txt <- htmlParse(url)
+  links <- unique(getHTMLLinks(txt))
+  found <- links[grep("/2016/", links)]
+  
+  return(found)
+}
 ##########
 
-base_url <- "http://www.elfinanciero.com.mx"
-urls_look <- c("/nacional/","/mundo/","/financial-times/","/tech/")
+urls_look <- c("http://www.nytimes.com/es/collection/editorial/",
+          "http://www.nytimes.com/es/collection/salud/",
+          "http://www.nytimes.com/es/collection/internacional/",
+          "http://www.nytimes.com/es/collection/tecnologia/",
+          "http://www.nytimes.com/es/collection/america-latina/",
+          "http://www.nytimes.com/es/collection/europa/",
+          "http://www.nytimes.com/es/collection/estados-unidos/")
 
-url <- getURL(base_url)
-txt <- htmlParse(url)
-links <- unique(getHTMLLinks(txt))
-found <- links[grep(paste(urls_look, collapse="|"), links)]
-found_urls  <- paste0(base_url, found)
+all_urls <- sapply(urls_look, function(x) getUrls(x)) %>% unlist()
 
-contents.df <- sapply(found_urls, function(x) extractNews(x)) %>% t() %>% 
+
+contents.df <- sapply(all_urls, function(x) extractNews(x)) %>% t() %>%
   as.data.frame(row.names=NULL)
-names(contents.df) <- c("url","title","description","content")
+names(contents.df) <-  c("url","title","description","content")
 
+
+contents.df <- data.frame(url=urls, 
+                          title=titles,
+                          description=descriptions,
+                          content=contents)
 
 day.time <- Sys.time()
 label.day.time <- paste(year(day.time),
@@ -72,7 +88,7 @@ label.day.time <- paste(year(day.time),
                         sep="_")
 
 
-write.csv(contents.df, file=paste0("noticias/",label.day.time,"_financiero"),
+write.csv(contents.df, file=paste0("noticias/",label.day.time,"_nyt"),
           row.names=F)
 
 

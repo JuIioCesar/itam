@@ -19,7 +19,7 @@ shinyServer(function(input, output) {
     pruneHierarchy()
   })
   
-  output$refined.tags <- renderDataTable({
+  output$pruned.tags <- renderDataTable({
     pruning()
   })
   

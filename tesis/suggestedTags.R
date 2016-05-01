@@ -130,26 +130,26 @@ pruneHierarchy <- function() {
     hierarchy.ref <- character()
     for(i in 1:length(hierarchies.new)) {
       hierarchy.refined <- hierarchies.new[[i]][1:hierarchy.level.new[i]]
-      tag.refined <- ""
+      tag.pruned <- ""
       for(j in 1:hierarchy.level.new[i]){
         ifelse(j == 1,
-          tag.refined <- paste0(hierarchy.refined[j]),
-          tag.refined <- paste0(tag.refined, ".", hierarchy.refined[j])
+          tag.pruned <- paste0(hierarchy.refined[j]),
+          tag.pruned <- paste0(tag.pruned, ".", hierarchy.refined[j])
         )
       }
-      hierarchy.ref <- rbind(hierarchy.ref, tag.refined)
+      hierarchy.ref <- rbind(hierarchy.ref, tag.pruned)
     }
     
     hierarchy.ref <- unique(hierarchy.ref)
     new.hierarchy <- sapply(hierarchy.ref, function(x) grep(paste0("^",x), ranking$original))
-    refined.suggests <- sapply(new.hierarchy, function(x) max(ranking$bm25[unlist(x)]))
+    pruned.suggests <- sapply(new.hierarchy, function(x) max(ranking$bm25[unlist(x)]))
     
-    rf.sug <- data.frame(refined.tag=names(refined.suggests),
-               bm25=refined.suggests)
+    rf.sug <- data.frame(pruned.tag=names(pruned.suggests),
+               bm25=pruned.suggests)
     
     rf.sug <- rf.sug[with(rf.sug, order(-bm25)),]
   } else{
-    rf.sug <- data.frame(refined.tag="None",
+    rf.sug <- data.frame(pruned.tag="None",
                          bm25=0)
   }
   
