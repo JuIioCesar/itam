@@ -1,6 +1,7 @@
 library(RCurl)
 library(XML)
 library(lubridate)
+library(dplyr)
 
 ###getting the actual news
 getNews <- function(x){
@@ -64,12 +65,6 @@ all_urls <- sapply(urls_look, function(x) getUrls(x)) %>% unlist()
 contents.df <- sapply(all_urls, function(x) extractNews(x)) %>% t() %>%
   as.data.frame(row.names=NULL)
 names(contents.df) <-  c("url","title","description","content")
-
-
-contents.df <- data.frame(url=urls, 
-                          title=titles,
-                          description=descriptions,
-                          content=contents)
 
 day.time <- Sys.time()
 label.day.time <- paste(year(day.time),
