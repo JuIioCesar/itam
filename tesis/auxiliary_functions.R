@@ -4,6 +4,7 @@ suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(tidyr))
 suppressPackageStartupMessages(library(SnowballC))
 
+
 ##eliminate duplicated strings within the same query string
 eliminateDuplicated <- function(x) {
   aux <- unlist(str_split(x, " "))
@@ -138,6 +139,7 @@ fValue <- function(document, doc.matrix, term){
 }
 
 
+
 ##first term of the bm25 formula 
 t1Value <- function(n, r, R, N){
   t1_num <- (r+0.5)*(N - n - R + r +0.5)
@@ -153,7 +155,7 @@ t1Value <- function(n, r, R, N){
 t2Value <- function(term, doc.matrix, K, avgdl, dlValues, k1){
   if(length(grep(paste0("^", term, "$"), doc.matrix$term)) > 0) {
     frequencies <- doc.matrix[grep(paste0("^",term,"$"), doc.matrix$term),]
-    docs <- gather(frequencies, doc, freq, - term)
+    docs <- gather(frequencies, doc, freq, -term)
     
     docs$K <- K
     docs$dl <- dlValues
@@ -174,7 +176,25 @@ t3Value <- function(term, qf, k2) {
 }
 
 
+###for tfidf
+frequenciesValues <- function(doc.matrix, term, aux.df) {
+  if(length(grep(paste0("^", term, "$"), doc.matrix$term)) > 0) {
+    frequencies <- doc.matrix[grep(paste0("^",term,"$"), doc.matrix$term),]
+    docs <- gather(frequencies, doc, freq, -term)
+    
+    freqs <- docs$freq
+  } else {
+    freqs <- rep(0, (dim(doc.matrix)[2]-1))
+  }
+}
 
+
+###change accents
+changeAccents <- function(term){
+  old <- "áéíóúÁÉÍÓÚ"
+  new <- "aeiouAEIOU"
+  term <- chartr(old,new, term)
+}
 
 ########
 ####bm25 
@@ -183,6 +203,7 @@ bm25 <- function(r=0, R=0, k1=1.2, k2=100, b=0.75,
                  nValues){
   terms <- unique(unlist(str_split(query, " ")))
   
+  ##numero de documentos que contienen el termino
   nValues <- sapply(terms, function(x) 
     sum(ifelse(gather(doc.matrix[grep(
       paste0("^",x,"$"), doc.matrix$term),2:N])$value >0, 1,0)))
@@ -191,9 +212,6 @@ bm25 <- function(r=0, R=0, k1=1.2, k2=100, b=0.75,
   
   #t1 values
   t1.values <- sapply(nValues, function(x) t1Value(x, r, R, N))
-  t1.values.df <- data.frame(
-    #doc=paste0("doc",seq(1:N)),
-    sapply(t1.values, function(x) rep(x, N)))
   
   Ks <- KValues(k1, b, dlValues, avgdl)
   
@@ -207,26 +225,56 @@ bm25 <- function(r=0, R=0, k1=1.2, k2=100, b=0.75,
   t3.values <- sapply(terms, function(x)
     t3Value(x, qf.values, k2)) 
   names(t3.values) <- terms
-  t3.values.df <- data.frame(
-    #doc=paste0("doc",seq(1:N)),
-    sapply(t3.values, function(x) rep(x, N)))
   
-  bms <- data.frame(doc=paste0("doc", seq(1:N)))
-  for(i in 1:length(terms)){
-     bms <- cbind(bms, t1.values.df[,i]*t2.values[,i]*t3.values.df[,i]) 
-  }
-  names(bms) <- c("doc", terms)
-
-  bm25s <- data.frame(doc=paste0("doc", seq(1:N)),
-                      bm25=rep(0, N))
-  if(length(terms) > 1) {
-    bm25s$bm25 <- apply(bms[,2:length(terms)], 1, function(x) sum(x))
-  } else {
-    bm25s$bm25 <- bms[,2]
-  }
+  t2.values.aux <- as.data.frame(t(t2.values))
+  names(t2.values.aux) <- paste0("doc", seq(1,dim(t2.values)[1]))
   
+  
+  bms <- as.data.frame(apply(t2.values.aux, 2, function(x) 
+    t1.values * t3.values * x))
+  
+  
+  bm25 <- apply(bms, 2, function(x)
+    sum(x))
+  bm25s <- data.frame(doc=paste0("doc",seq(1:N)),
+                               bm25=bm25)
+  rownames(bm25s) <- NULL
   bm25s <- bm25s[with(bm25s, order(-bm25)),]
+
+  tfidfs_sorted <- tfidf(N, nValues, doc.matrix, terms)
   
   bm25s[1:20,]
 }
 
+
+
+tfidf <- function(N, nValues, doc.matrix, terms){
+  ##term frequencies per document
+  tfs <- as.data.frame(sapply(terms, function(x) 
+    frequenciesValues(doc.matrix, x)))
+  tfs.df <- as.data.frame(t(tfs))
+  names(tfs.df) <- paste0("doc", seq(1,3895))
+  tfs.df$term <- rownames(tfs.df) 
+  rownames(tfs.df) <- NULL
+  
+  nValues.df <- as.data.frame(nValues)
+  nValues.df$term <- rownames(nValues.df)
+  rownames(nValues.df) <- NULL
+  
+  tfidf.df <- inner_join(tfs.df, nValues.df)
+  
+  tfs_values <- select(tfs.df, -term)
+  
+  tfidf_values <- apply(tfs_values, 2, function(x)
+    ifelse(x > 0,
+           x * log10(N/nValues.df$nValues), 0))
+  
+  sumtfidf <- apply(tfidf_values, 2, function(x)
+    sum(x)) 
+  sorted_tfidf <- sort(sumtfidf, decreasing =T)
+  sorted_tfidf_df <- data.frame(doc=names(sorted_tfidf),
+                                tfidf=sorted_tfidf)
+  rownames(sorted_tfidf_df) <- NULL
+  
+  sorted_tfidf_df[1:20,]
+}

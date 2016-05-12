@@ -2,6 +2,7 @@ library(RCurl)
 library(XML)
 library(lubridate)
 library(dplyr)
+library(RPostgreSQL)
 
 ###getting the actual news
 getNews <- function(x){
@@ -72,7 +73,19 @@ label.day.time <- paste(year(day.time),
                         sep="_")
 
 
-write.csv(contents.df, file=paste0("noticias/",label.day.time,"_financiero"),
-          row.names=F)
+#write.csv(contents.df, file=paste0("noticias/",label.day.time,"_financiero"),
+#          row.names=F)
+
+#financiero <- read_csv("/Users/liliana.millan/Documents/itam/itam/tesis/noticias/2016_04_30_23_51_financiero")
+#financiero <- as.data.frame(financiero)
+contents.df$fecha <- Sys.Date()
+contents.df$origen <- paste(label.day.time, "financiero", sep="_")
+
+s <- select(contents.df, fecha, url, title, description, content, origen)
+
+### to postgres
+conn <- dbConnect("PostgreSQL", dbname="itamtesis", host="localhost" )
+#my_db <- src_postgres(dbname="itamtesis", host="localhost", user="liliana.millan")
+dbWriteTable(conn, value=s, name="noticias", append=T, row.names=F)
 
 

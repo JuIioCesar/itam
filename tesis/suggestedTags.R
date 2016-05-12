@@ -19,12 +19,10 @@ getTags <- function(content) {
   N <- NValue(tags.df.matrix)
   #dlValues <- documentsLengths(doc.matrix)
   #document lengts
-  document.length <- integer()
-  for(i in 1:N){
-    document.length <- rbind(document.length, 
-                             length(unlist(str_split(as.character(content(tags.cleaned)[[i]]), " "))))
-  }
-  dlValues <- as.integer(document.length)
+  document.length <- sapply(tags.cleaned, function(x)
+    str_split(as.character(content(x))," ") %>% unlist() %>% length())
+  
+  dlValues <- document.length
   names(dlValues) <- paste0("doc", seq(1:N))
   
   #average length in documents set
@@ -38,6 +36,7 @@ getTags <- function(content) {
   for(i in 1:length(corpus.cleaned)){
     ptm <- proc.time()
     query <- as.character(corpus.cleaned[[i]])
+    query <- changeAccents(query)
     
     ranks <- bm25(N=N, dlValues=dlValues, avgdl=avgdl, 
                   doc.matrix=tags.df.matrix, query=query)
@@ -45,6 +44,9 @@ getTags <- function(content) {
     #ranks$query <- rep(i,10)
     ranking <- rbind(ranking, ranks)
   }
+  
+  #ranks <- sapply(corpus.cleand, function(x) getBM25(x, N, dlValues, avgdl, 
+  #                                          tags.df.matrix, query))
 
   ranking$tag <- tags.unique[as.numeric(rownames(ranking))]
   ranking$original <- sapply(ranking$tag, function(x)
@@ -97,7 +99,7 @@ pruningAnalysis <- function(elements, corpus.matrix) {
 
 
 #once we have the suggested tags we refine their hierarchy to suggest the abstraction
-#of each tag, if the lenght of the terms to verify are even then is enough that 50% of
+#of each tag, if the lenght of the terms to verify is even then is enough that 50% of
 #them make match with the content, else 60% must match to pass the best abstraction
 pruneHierarchy <- function() {
   load("../ranking.RData")
@@ -155,7 +157,6 @@ pruneHierarchy <- function() {
   
   return(rf.sug)
 }
-
 
 
 

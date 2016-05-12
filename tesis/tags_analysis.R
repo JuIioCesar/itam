@@ -182,8 +182,7 @@ a_5$node[grep("yves saint laurent", a_5$node)] <- "yves saint laurent actriz"
 tree_df <- rbind(tree_df, select(as.data.frame(a_5), node, parent, n))
 
 
-a_6 <- group_by(tags_df, level1, level2, level3, level4, level5,
-                level6) %>%
+a_6 <- group_by(tags_df, level1, level2, level3, level4, level5, level6) %>%
   summarise(n=n())
 a_6 <- a_6[-which(is.na(a_6$level6)),]
 names(a_6)[grep("level6", names(a_6))] <- "node"
@@ -207,6 +206,11 @@ a_7 <- group_by(tags_df, level1, level2, level3, level4, level5,
 a_7 <- a_7[-which(is.na(a_7$level7)),]
 names(a_7)[grep("level7", names(a_7))] <- "node"
 names(a_7)[grep("level6", names(a_7))] <- "parent"
+a_7$node <- as.character(a_7$node)
+to_change <- a_7[grep("ciudades", a_7$node), c("node","parent")]
+to_change$aux <- paste(to_change$node, 
+                       to_change$parent, sep=" ")
+a_7$node[grep("ciudades", a_7$node)] <- to_change$aux
 tree_df <- rbind(tree_df, select(as.data.frame(a_7), node, parent, n))
 
 a_8 <- group_by(tags_df, level1, level2, level3, level4, level5,
@@ -220,18 +224,37 @@ tree_df <- rbind(tree_df, select(as.data.frame(a_8), node, parent, n))
 tree_df$node <- as.character(tree_df$node)
 tree_df <- rbind(tree_df, a_0)
 
+
+aux <- data.frame(node=unique(a_6$parent))
+aux$parent <- "root"
+aux_2 <- group_by(a_6, parent) %>% summarise(n=n())
+aux$n <- aux_2$n
+
+s <- a_6[,c("parent","node","n")]
+s <- rbind(s, aux)
+
+s$node <- as.character(s$node)
+s <- rbind(s, c(NA, "root",10))
+
+
 tree_df_unique <- group_by(tree_df, node, parent) %>%
   summarise(n=sum(as.integer(n))) 
 tree_df_unique$color <- sample(1:100, dim(tree_df_unique)[1], replace=T)
 
 #test <- group_by(tree_df_unique, node) %>% summarise(n=n())
-#filter(test, n > 3)
+#filter(test, n > 1)
 
 p1 <- gvisTreeMap(tree_df_unique,  idvar="node", parentvar="parent",
                     sizevar="n", colorvar="color")
 plot(p1)
 
+test <- Regions
+test$Parent <- as.character(test$Parent)
+test$Region <- as.character(test$Region)
+test <- rbind(test, c("Japan","America",30, 4))
+test <- rbind(test, c("algo","Japan",23,1))
 
-
-
+Tree <- gvisTreeMap(test, idvar="Region", parentvar="Parent",
+                    sizevar="Val", colorvar="Fac") 
+plot(Tree)
 
