@@ -244,6 +244,12 @@ bm25 <- function(r=0, R=0, k1=1.2, k2=100, b=0.75,
   tfidfs_sorted <- tfidf(N, nValues, doc.matrix, terms)
   
   bm25s[1:20,]
+  
+  classifications <- list()
+  classifications[["bm25"]] <- bm25s[1:20,]
+  classifications[["tfidf"]] <- tfidfs_sorted
+  
+  classifications
 }
 
 
@@ -274,7 +280,7 @@ tfidf <- function(N, nValues, doc.matrix, terms){
   sorted_tfidf <- sort(sumtfidf, decreasing =T)
   sorted_tfidf_df <- data.frame(doc=names(sorted_tfidf),
                                 tfidf=sorted_tfidf)
-  rownames(sorted_tfidf_df) <- NULL
+  rownames(sorted_tfidf_df) <- gsub("doc","",rownames(sorted_tfidf_df))
   
   sorted_tfidf_df[1:20,]
 }

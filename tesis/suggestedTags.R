@@ -14,11 +14,9 @@ getTags <- function(content) {
   
   corpus.cleaned <- cleaningCorpus(corpus.content)
   
-  #content(corpus.content)[1] obtiene el texto original que se quiere etiquetar
-  
   N <- NValue(tags.df.matrix)
-  #dlValues <- documentsLengths(doc.matrix)
-  #document lengts
+
+  #document lengths
   document.length <- sapply(tags.cleaned, function(x)
     str_split(as.character(content(x))," ") %>% unlist() %>% length())
   
@@ -28,25 +26,24 @@ getTags <- function(content) {
   #average length in documents set
   avgdl <- mean(dlValues) 
   
-  ranking <- data.frame(doc=character(),
-                        rank=numeric(),
-                        query=numeric())
+  # ranking <- data.frame(doc=character(),
+  #                       rank=numeric(),
+  #                       query=numeric())
   
   
-  for(i in 1:length(corpus.cleaned)){
+  #for(i in 1:length(corpus.cleaned)){
     ptm <- proc.time()
-    query <- as.character(corpus.cleaned[[i]])
+    query <- as.character(corpus.cleaned[[1]])
     query <- changeAccents(query)
     
     ranks <- bm25(N=N, dlValues=dlValues, avgdl=avgdl, 
                   doc.matrix=tags.df.matrix, query=query)
+    
     print(proc.time() - ptm)
-    #ranks$query <- rep(i,10)
-    ranking <- rbind(ranking, ranks)
-  }
-  
-  #ranks <- sapply(corpus.cleand, function(x) getBM25(x, N, dlValues, avgdl, 
-  #                                          tags.df.matrix, query))
+
+    ###bm25
+    ranking <- ranks$bm25
+  #}
 
   ranking$tag <- tags.unique[as.numeric(rownames(ranking))]
   ranking$original <- sapply(ranking$tag, function(x)
@@ -62,6 +59,26 @@ getTags <- function(content) {
   
   save(ranking, file="../ranking.RData")
   save(corpus.cleaned, file="../corpusCleaned.RData")
+  
+  ###tfidf 
+  
+  ranking_tfidf <- ranks$tfidf
+  #}
+  
+  ranking_tfidf$tag <- tags.unique[as.numeric(rownames(ranking_tfidf))]
+  ranking_tfidf$original <- sapply(ranking_tfidf$tag, function(x)
+    tags.df$tag[grep(paste0("^",x,"$"), tags.df$clean.unique)[1]])
+  
+  if(sum(ranking_tfidf$tfidf) >0) {
+    suggested_tags_tfidf <- data.frame(suggested_tag_tfidf=ranking_tfidf$original,
+                                 tfidf=ranking_tfidf$tfidf)
+  } else{
+    suggested_tags_tfidf <- data.frame(suggested_tag_tfidf="None",
+                                 tfidf=0)
+  }
+  
+  save(ranking_tfidf, file="../ranking_tfidf.RData")
+  
   
   suggested.tags
 }
@@ -95,6 +112,22 @@ pruningAnalysis <- function(elements, corpus.matrix) {
 }
 
 
+getHierarchiesLevels <- function(tag) {
+  terms <- unlist(tag)
+  for(j in length(terms):1) {
+    refinement <- pruningAnalysis(terms[j], corpus.matrix)
+    if(as.numeric(refinement) == 1){
+      hierarchy_level <- rbind(hierarchy_level, j)
+      j <- 1
+    } 
+  }
+  
+  if(length(hierarchy_level) > 0) {
+    hierarchy_level[length(hierarchy_level)] 
+  } else{
+    0
+  }
+}
 
 
 
@@ -103,28 +136,21 @@ pruningAnalysis <- function(elements, corpus.matrix) {
 #them make match with the content, else 60% must match to pass the best abstraction
 pruneHierarchy <- function() {
   load("../ranking.RData")
+  load("../ranking_tfidf.RData")
   load("../corpusCleaned.RData")
   
+
   corpus.matrix <- TermDocumentMatrix(corpus.cleaned)
   
   #validate that the ranking is greater than 0... it actually gave some suggestions
   if(sum(ranking$bm25) > 0) {
     hierarchies <- sapply(ranking$original, function(x) 
-        str_split(x, "\\."))
+      unlist(str_split(x, "\\.")))
     
-    hierarchy.level <- rep(0, length(hierarchies))
-    for(i in 1:length(hierarchies)){
-      terms <- unlist(hierarchies[i])
-      for(j in length(terms):1) {
-        refinement <- pruningAnalysis(terms[j], corpus.matrix)
-        if(as.numeric(refinement) == 1){
-            hierarchy.level[i] <- j
-            j <- 1
-        } 
-      } 
-    }
+    hierarchy_level <- numeric()
+     <- sapply(hierarchies, function(x) getHierarchiesLevels(x))
     
-    
+  
     
     hierarchies.new <- hierarchies[which(hierarchy.level > 0)]
     hierarchy.level.new <- hierarchy.level[which(hierarchy.level > 0)]
