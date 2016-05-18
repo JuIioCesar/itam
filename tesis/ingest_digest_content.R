@@ -1,6 +1,8 @@
 library(dplyr)
+library(RPostgreSQL)
 
 source("../suggestedTags.R")
+source("../tags_manipulation.R")
 
 my_db <- src_postgres(dbname="itamtesis", host="localhost", user="liliana.millan")
 noticias <- tbl(my_db, "noticias")
@@ -18,5 +20,32 @@ noticias_unique <- distinct(noticias_df, title)
 content_df <- paste(noticias_unique$title, noticias_unique$description, 
                     noticias_unique$content, sep=" ")
 
+#### digest
+getRecommendations <- function(content, final_df){
+  getTags(content)
+  pruneHierarchy()
+  
+  load("../pruned_bm25.RData")
+  load("../pruned_tfidf.RData")
+  
+  # top_suggestions_bm25 <- list(rf.sug[1:5,"pruned.tag"])
+  # top_suggestions_tfidf <- list(rf_sug_tfidf[1:5,"pruned.tag"])
+  
+  s <- data.frame(contet=content, tag_bm25=rf.sug[1,"pruned.tag"],
+                  bm25=rf.sug[1,"bm25"],
+                  tags_tfidf=rf_sug_tfidf[1,"pruned.tag"],
+                  tfidf=rf_sug_tfidf[1,"tfidf"])
 
-recommendations <- sapply(content_df, function(x) getTags(x))
+  
+  conn <- dbConnect("PostgreSQL", dbname="itamtesis", host="localhost" )
+  dbWriteTable(conn, value=s, name="clasificaciones", append=T, row.names=F)
+  dbDisconnect(conn)
+}
+
+
+results <- sapply(content_df[11:20], function(x) getRecommendations(x))
+
+
+
+
+

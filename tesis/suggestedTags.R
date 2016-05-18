@@ -6,6 +6,47 @@ suppressPackageStartupMessages(library(stringr))
 load("../tags.df.matrix.RData")
 source("../auxiliary_functions.R")
 
+
+###
+getTagsAux <- function(df, metric="bm25", tags.df){
+  if(metric == "bm25"){
+    ranking <- df$bm25
+  } else{
+    ranking <- df$tfidf
+  }
+  ranking$tag <- tags.unique[as.numeric(rownames(ranking))]
+  ranking$original <- sapply(ranking$tag, function(x)
+    tags.df$tag[grep(paste0("^",x,"$"), tags.df$clean.unique)[1]])
+  
+  if(sum(ranking[,grep(metric, names(ranking))]) >0) {
+    if(metric == "bm25") {
+      suggested.tags <- data.frame(suggested.tag=ranking$original,
+                                   bm25=ranking$bm25)
+    }else{
+      suggested.tags <- data.frame(suggested.tag=ranking$original,
+                                   tfidf=ranking$tfidf)
+    }
+  } else{
+    if(metric == "bm25") {
+      suggested.tags <- data.frame(suggested.tag="None",
+                                 bm25=0)
+    }else{
+      suggested.tags <- data.frame(suggested.tag="None",
+                                   tfidf=0)
+    }
+  }
+  
+  if(metric == "bm25") {
+    save(ranking, file="../ranking.RData")
+  } else{
+    ranking_tfidf <- ranking
+    save(ranking_tfidf, file="../ranking_tfidf.RData")
+  }
+  
+  suggested.tags
+}
+
+
 ##
 getTags <- function(content) {
   content.vector.source <- VectorSource(content)
@@ -13,6 +54,7 @@ getTags <- function(content) {
                             readerControl=list(language="es"))
   
   corpus.cleaned <- cleaningCorpus(corpus.content)
+  save(corpus.cleaned, file="../corpusCleaned.RData")
   
   N <- NValue(tags.df.matrix)
 
@@ -26,60 +68,19 @@ getTags <- function(content) {
   #average length in documents set
   avgdl <- mean(dlValues) 
   
-  # ranking <- data.frame(doc=character(),
-  #                       rank=numeric(),
-  #                       query=numeric())
   
-  
-  #for(i in 1:length(corpus.cleaned)){
-    ptm <- proc.time()
-    query <- as.character(corpus.cleaned[[1]])
-    query <- changeAccents(query)
+  query <- as.character(corpus.cleaned[[1]])
+  query <- changeAccents(query)
     
-    ranks <- bm25(N=N, dlValues=dlValues, avgdl=avgdl, 
+  ranks <- bm25(N=N, dlValues=dlValues, avgdl=avgdl, 
                   doc.matrix=tags.df.matrix, query=query)
     
-    print(proc.time() - ptm)
-
-    ###bm25
-    ranking <- ranks$bm25
-  #}
-
-  ranking$tag <- tags.unique[as.numeric(rownames(ranking))]
-  ranking$original <- sapply(ranking$tag, function(x)
-    tags.df$tag[grep(paste0("^",x,"$"), tags.df$clean.unique)[1]])
-  
-  if(sum(ranking$bm25) >0) {
-    suggested.tags <- data.frame(suggested.tag=ranking$original,
-                               bm25=ranking$bm25)
-  } else{
-    suggested.tags <- data.frame(suggested.tag="None",
-                                 bm25=0)
-  }
-  
-  save(ranking, file="../ranking.RData")
-  save(corpus.cleaned, file="../corpusCleaned.RData")
-  
-  ###tfidf 
-  
-  ranking_tfidf <- ranks$tfidf
-  #}
-  
-  ranking_tfidf$tag <- tags.unique[as.numeric(rownames(ranking_tfidf))]
-  ranking_tfidf$original <- sapply(ranking_tfidf$tag, function(x)
-    tags.df$tag[grep(paste0("^",x,"$"), tags.df$clean.unique)[1]])
-  
-  if(sum(ranking_tfidf$tfidf) >0) {
-    suggested_tags_tfidf <- data.frame(suggested_tag_tfidf=ranking_tfidf$original,
-                                 tfidf=ranking_tfidf$tfidf)
-  } else{
-    suggested_tags_tfidf <- data.frame(suggested_tag_tfidf="None",
-                                 tfidf=0)
-  }
-  
-  save(ranking_tfidf, file="../ranking_tfidf.RData")
-  
-  
+  ###bm25
+  suggested.tags <- getTagsAux(ranks, "bm25", tags.df)
+    
+  ###tfidf
+  getTagsAux(ranks, "tfidf", tags.df)
+    
   suggested.tags
 }
 
@@ -111,8 +112,9 @@ pruningAnalysis <- function(elements, corpus.matrix) {
   return(prop)
 }
 
-
-getHierarchiesLevels <- function(tag) {
+####
+getHierarchiesLevels <- function(tag, corpus.matrix) {
+  hierarchy_level <- numeric()
   terms <- unlist(tag)
   for(j in length(terms):1) {
     refinement <- pruningAnalysis(terms[j], corpus.matrix)
@@ -130,6 +132,56 @@ getHierarchiesLevels <- function(tag) {
 }
 
 
+####
+pruningAux <- function(ranking_df, metric="bm25", corpus.matrix) {
+  if(sum(ranking_df[,grep(metric, names(ranking_df))]) > 0) {
+    hierarchies <- sapply(ranking_df$original, function(x) 
+      unlist(str_split(x, "\\.")))
+    
+    hierarchy.level <- sapply(hierarchies, function(x) getHierarchiesLevels(x, corpus.matrix))
+    
+    
+    hierarchies.new <- hierarchies[which(hierarchy.level > 0)]
+    hierarchy.level.new <- hierarchy.level[which(hierarchy.level > 0)]
+    
+    hierarchy.ref <- character()
+    for(i in 1:length(hierarchies.new)) {
+      hierarchy.refined <- hierarchies.new[[i]][1:hierarchy.level.new[i]]
+      tag.pruned <- ""
+      for(j in 1:hierarchy.level.new[i]){
+        ifelse(j == 1,
+               tag.pruned <- paste0(hierarchy.refined[j]),
+               tag.pruned <- paste0(tag.pruned, ".", hierarchy.refined[j])
+        )
+      }
+      hierarchy.ref <- rbind(hierarchy.ref, tag.pruned)
+    }
+    
+    hierarchy.ref <- unique(hierarchy.ref)
+    new.hierarchy <- sapply(hierarchy.ref, function(x) grep(paste0("^",x), ranking_df$original))
+    pruned.suggests <- sapply(new.hierarchy, function(x) 
+      max(ranking_df[,grep(metric, names(ranking_df))][unlist(x)]))
+      #max(ranking$bm25[unlist(x)]))
+    
+    if(metric == "bm25") {
+      rf.sug <- data.frame(pruned.tag=names(pruned.suggests),
+                           bm25=pruned.suggests)
+      
+      rf.sug <- rf.sug[with(rf.sug, order(-bm25)),]
+    }else{
+      rf.sug <- data.frame(pruned.tag=names(pruned.suggests),
+                           tfidf=pruned.suggests)
+      
+      rf.sug <- rf.sug[with(rf.sug, order(-tfidf)),]
+    }
+  } else{
+    rf.sug <- data.frame(pruned.tag="None",
+                         bm25=0)
+  }
+  
+  rf.sug
+}
+
 
 #once we have the suggested tags we refine their hierarchy to suggest the abstraction
 #of each tag, if the lenght of the terms to verify is even then is enough that 50% of
@@ -142,46 +194,13 @@ pruneHierarchy <- function() {
 
   corpus.matrix <- TermDocumentMatrix(corpus.cleaned)
   
-  #validate that the ranking is greater than 0... it actually gave some suggestions
-  if(sum(ranking$bm25) > 0) {
-    hierarchies <- sapply(ranking$original, function(x) 
-      unlist(str_split(x, "\\.")))
-    
-    hierarchy_level <- numeric()
-     <- sapply(hierarchies, function(x) getHierarchiesLevels(x))
-    
+  rf.sug <- pruningAux(ranking, "bm25", corpus.matrix)
+  rf_sug_tfidf <- pruningAux(ranking_tfidf, "tfidf", corpus.matrix)
+
+  save(rf.sug, file="../pruned_bm25.RData")
+  save(rf_sug_tfidf, file="../pruned_tfidf.RData")
   
-    
-    hierarchies.new <- hierarchies[which(hierarchy.level > 0)]
-    hierarchy.level.new <- hierarchy.level[which(hierarchy.level > 0)]
-    
-    hierarchy.ref <- character()
-    for(i in 1:length(hierarchies.new)) {
-      hierarchy.refined <- hierarchies.new[[i]][1:hierarchy.level.new[i]]
-      tag.pruned <- ""
-      for(j in 1:hierarchy.level.new[i]){
-        ifelse(j == 1,
-          tag.pruned <- paste0(hierarchy.refined[j]),
-          tag.pruned <- paste0(tag.pruned, ".", hierarchy.refined[j])
-        )
-      }
-      hierarchy.ref <- rbind(hierarchy.ref, tag.pruned)
-    }
-    
-    hierarchy.ref <- unique(hierarchy.ref)
-    new.hierarchy <- sapply(hierarchy.ref, function(x) grep(paste0("^",x), ranking$original))
-    pruned.suggests <- sapply(new.hierarchy, function(x) max(ranking$bm25[unlist(x)]))
-    
-    rf.sug <- data.frame(pruned.tag=names(pruned.suggests),
-               bm25=pruned.suggests)
-    
-    rf.sug <- rf.sug[with(rf.sug, order(-bm25)),]
-  } else{
-    rf.sug <- data.frame(pruned.tag="None",
-                         bm25=0)
-  }
-  
-  return(rf.sug)
+  rf.sug
 }
 
 

@@ -11,8 +11,10 @@ create table noticias(
 
 create table clasificaciones(
   content character varying,
-  tags_bm25 character varying ARRAY[5],
-  tags_tfidf character varying ARRAY[5]
+  tag_bm25 character varying,
+  bm25 numeric(10,2),
+  tag_tfidf character varying,
+  tfidf numeric(10,2)
 );
 
 create index idx_noticias_url on noticias(url);
