@@ -10,13 +10,15 @@ s_df_agg <- group_by(s_df, abstraction_level) %>%
 
 
 ggplot(s_df_agg, aes(x=abstraction_level, y=prop, 
-                     label=prop)) +
+                     label=prop, fill=factor(abstraction_level))) +
   geom_bar(stat="identity") +
   geom_text(check_overlap = TRUE, vjust=0) +
   scale_fill_discrete(name="# of abstraction\nlevels") +
   theme_bw() +
   xlab("number of levels") +
   ylab("%") +
+  scale_fill_brewer(palette="YlGnBu") +
+  guides(fill=guide_legend(title="# niveles de abstracción")) +
   ggtitle("Niveles de abstracción en etiquetas de Grupo Expansión")
   
 
@@ -36,10 +38,13 @@ first_terms_unique <- first_terms_unique[with(first_terms_unique, order(first_te
 first_terms_df_agg <- group_by(first_terms_df, first_terms) %>%
   summarise(n=n()) %>%
   mutate(prop=round(prop.table(n)*100,2))
+first_terms_df_agg <- first_terms_df_agg[with(first_terms_df_agg, order(-prop)),]
+first_terms_df_agg$first_terms <- factor(first_terms_df_agg$first_terms, 
+                             levels=first_terms_df_agg$first_terms)
 
 
 ggplot(first_terms_df_agg, aes(x=first_terms, y=prop,
-                               label=prop)) +
+                               label=prop, fill=first_terms)) +
   geom_bar(stat="identity") +
   geom_text(vjust=0) +
   theme_bw() +
@@ -47,7 +52,8 @@ ggplot(first_terms_df_agg, aes(x=first_terms, y=prop,
   guides(fill=F) +
   xlab("temas generales (1 nivel abstracción)")+
   ylab("%")+
-  ggtitle("# etiquetas pertenecientes a cada tema general")
+  scale_fill_brewer(palette="YlGnBu") +
+  ggtitle("% de etiquetas por temas de primer nivel de abstracción")
 
 ## second terms 
 second_terms <- sapply(tags.df$tags, function(x)
@@ -257,4 +263,7 @@ test <- rbind(test, c("algo","Japan",23,1))
 Tree <- gvisTreeMap(test, idvar="Region", parentvar="Parent",
                     sizevar="Val", colorvar="Fac") 
 plot(Tree)
+
+
+
 

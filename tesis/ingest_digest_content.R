@@ -31,10 +31,10 @@ getRecommendations <- function(content, final_df){
   # top_suggestions_bm25 <- list(rf.sug[1:5,"pruned.tag"])
   # top_suggestions_tfidf <- list(rf_sug_tfidf[1:5,"pruned.tag"])
   
-  s <- data.frame(contet=content, tag_bm25=rf.sug[1,"pruned.tag"],
-                  bm25=rf.sug[1,"bm25"],
-                  tags_tfidf=rf_sug_tfidf[1,"pruned.tag"],
-                  tfidf=rf_sug_tfidf[1,"tfidf"])
+  s <- data.frame(contet=content, tag_bm25=rf.sug[1:5,"pruned.tag"],
+                  bm25=rf.sug[1:5,"bm25"],
+                  tags_tfidf=rf_sug_tfidf[1:5,"pruned.tag"],
+                  tfidf=rf_sug_tfidf[1:5,"tfidf"])
 
   
   conn <- dbConnect("PostgreSQL", dbname="itamtesis", host="localhost" )
@@ -42,9 +42,9 @@ getRecommendations <- function(content, final_df){
   dbDisconnect(conn)
 }
 
-
-results <- sapply(content_df[11:20], function(x) getRecommendations(x))
-
+pmd <- proc.time()
+results <- sapply(content_df, function(x) getRecommendations(x))
+proc.time() - pmd
 
 
 

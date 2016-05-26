@@ -125,7 +125,8 @@ getHierarchiesLevels <- function(tag, corpus.matrix) {
   }
   
   if(length(hierarchy_level) > 0) {
-    hierarchy_level[length(hierarchy_level)] 
+    #hierarchy_level[length(hierarchy_level)] 
+    hierarchy_level[1]
   } else{
     0
   }

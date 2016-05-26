@@ -81,11 +81,18 @@ label.day.time <- paste(year(day.time),
 contents.df$fecha <- Sys.Date()
 contents.df$origen <- paste(label.day.time, "financiero", sep="_")
 
-s <- select(contents.df, fecha, url, title, description, content, origen)
+contents.df$seccion <- ""
+contents.df$seccion[grep("/nacional/", contents.df$url)] <- "nacional"
+contents.df$seccion[grep("/mundo/", contents.df$url)] <- "mundo"
+contents.df$seccion[grep("/financial-times/", contents.df$url)] <- "financial_times"
+contents.df$seccion[grep("/tech/", contents.df$url)] <- "tech"
+
+s <- select(contents.df, fecha, url, title, description, content, origen, seccion)
 
 ### to postgres
 conn <- dbConnect("PostgreSQL", dbname="itamtesis", host="localhost" )
 #my_db <- src_postgres(dbname="itamtesis", host="localhost", user="liliana.millan")
 dbWriteTable(conn, value=s, name="noticias", append=T, row.names=F)
+
 
 
