@@ -198,7 +198,7 @@ changeAccents <- function(term){
 
 ########
 ####bm25 
-bm25 <- function(r=0, R=0, k1=1.2, k2=100, b=0.75, 
+bm25 <- function(r=0, R=0, k1=1, k2=100, b=0.75, 
                  N, dlValues, avgdl, doc.matrix, query, 
                  nValues){
   terms <- unique(unlist(str_split(query, " ")))

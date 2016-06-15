@@ -1,4 +1,5 @@
 library(dplyr)
+library(ggplot2)
 
 my_db <- src_postgres(dbname="itamtesis", host="localhost", user="liliana.millan")
 clasificaciones <- tbl(my_db, "clasificaciones")
@@ -6,8 +7,8 @@ clasificaciones <- tbl(my_db, "clasificaciones")
 clasificaciones_df <- collect(clasificaciones)
 
 clasificaciones <- group_by(clasificaciones_df, content) %>%
-  summarise(bm25=max(bm25),
-            tfidf=max(tfidf))
+  summarise(bm25=max(bm25, na.rm=T),
+            tfidf=max(tfidf, na.rm=T))
 
 s <- inner_join(clasificaciones, clasificaciones_df, by=c("content"="content",
                                                           "bm25"="bm25")) 
@@ -52,7 +53,7 @@ ggplot(secciones, aes(x=seccion, y=prop, fill=seccion)) +
   geom_bar(stat="identity") +
   theme_bw() +
   theme(axis.text.x=element_text(angle=90, hjust=1)) +
-  scale_fill_brewer(palette="YlGnBu") +
+  scale_fill_brewer(palette="Spectral") +
   xlab("sección") +
   ylab("%") +
   ggtitle("% secciones en el contenido clasificado")
@@ -82,7 +83,7 @@ ggplot(secciones_nuevas, aes(x=seccion_new, y=prop, fill=seccion_new,
   geom_text(vjust=0, size=3) +
   theme_bw() +
   theme(axis.text.x=element_text(angle=90, hjust=1)) +
-  scale_fill_brewer(palette="YlGnBu") +
+  scale_fill_brewer(palette="Spectral") +
   xlab("sección") +
   ylab("%") +
   scale_y_continuous(limits=c(0,50)) +
@@ -103,33 +104,33 @@ totals_secciones$prop_iguales <- round(totals_secciones$iguales/
                                          totals_secciones$totales*100, 2)
 
 
-ggplot(totals_secciones, aes(x=seccion_new, y=prop_iguales, fill=seccion_new,
-                             label=prop_iguales)) +
-  geom_bar(stat="identity") +
-  geom_text(vjust=0, size=3) +
-  theme_bw() +
-  theme(axis.text.x=element_text(angle=90, hjust=1)) +
-  xlab("sección") +
-  ylab("%") +
-  scale_fill_brewer(palette="YlGnBu") +
-  ggtitle("% de contenidos clasificados\nigual por BM25 y TF/IDF")
   
 
 ###get sample 
-aux <- filter(clasificaciones, seccion_new == "internacional")
-internacional_sample <- sample_n(aux, size=17, replace=F)
+without_equals <- clasificaciones[which(!(clasificaciones$url %in% 
+                                            equal_tags$url)),]
+  
+set.seed(54903)
+aux <- filter(without_equals, seccion_new == "internacional")
+#internacional_sample <- sample_n(aux, size=17, replace=F)
+internacional_sample <- sample_n(aux, size=82, replace=F)
 
-aux <- filter(clasificaciones, seccion_new == "nacional")
-nacional_sample <- sample_n(aux, size=14, replace=F)
+aux <- filter(without_equals, seccion_new == "nacional")
+#nacional_sample <- sample_n(aux, size=14, replace=F)
+nacional_sample <- sample_n(aux, size=67, replace=F)
 
-aux <- filter(clasificaciones, seccion_new == "tecnologia")
-tec_sample <- sample_n(aux, size=7, replace=F)
+aux <- filter(without_equals, seccion_new == "tecnologia")
+#tec_sample <- sample_n(aux, size=7, replace=F)
+tec_sample <- sample_n(aux, size=32, replace=F)
 
-aux <- filter(clasificaciones, seccion_new == "estados-unidos")
-estados_unidos_sample <- sample_n(aux, size=3, replace=F)
 
-aux <- filter(clasificaciones, seccion_new == "salud")
-salud_sample <- sample_n(aux, size=2, replace=F)
+aux <- filter(without_equals, seccion_new == "estados-unidos")
+#estados_unidos_sample <- sample_n(aux, size=3, replace=F)
+estados_unidos_sample <- sample_n(aux, size=13, replace=F)
+
+aux <- filter(without_equals, seccion_new == "salud")
+#salud_sample <- sample_n(aux, size=2, replace=F)
+salud_sample <- sample_n(aux, size=11, replace=F)
 
 
 #documentos 
