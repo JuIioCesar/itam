@@ -17,7 +17,7 @@ ggplot(s_df_agg, aes(x=abstraction_level, y=prop,
   theme_bw() +
   xlab("number of levels") +
   ylab("%") +
-  scale_fill_brewer(palette="YlGnBu") +
+  scale_fill_brewer(palette="Scatter") +
   guides(fill=guide_legend(title="# niveles de abstracción")) +
   ggtitle("Niveles de abstracción en etiquetas de Grupo Expansión")
   
@@ -52,7 +52,7 @@ ggplot(first_terms_df_agg, aes(x=first_terms, y=prop,
   guides(fill=F) +
   xlab("temas generales (1 nivel abstracción)")+
   ylab("%")+
-  #scale_fill_brewer(palette="Spectral") +
+  #scale_fill_brewer(palette="Scatter") +
   ggtitle("% de etiquetas por temas de primer nivel de abstracción")
 
 ## second terms 
@@ -227,8 +227,6 @@ names(a_8)[grep("level8", names(a_8))] <- "node"
 names(a_8)[grep("level7", names(a_8))] <- "parent"
 tree_df <- rbind(tree_df, select(as.data.frame(a_8), node, parent, n))
 
-tree_df$node <- as.character(tree_df$node)
-tree_df <- rbind(tree_df, a_0)
 
 
 aux <- data.frame(node=unique(a_6$parent))
@@ -241,6 +239,10 @@ s <- rbind(s, aux)
 
 s$node <- as.character(s$node)
 s <- rbind(s, c(NA, "root",10))
+
+
+tree_df$node <- as.character(tree_df$node)
+tree_df <- rbind(tree_df, a_0)
 
 
 tree_df_unique <- group_by(tree_df, node, parent) %>%
