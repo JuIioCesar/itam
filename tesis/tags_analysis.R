@@ -17,7 +17,7 @@ ggplot(s_df_agg, aes(x=abstraction_level, y=prop,
   theme_bw() +
   xlab("number of levels") +
   ylab("%") +
-  scale_fill_brewer(palette="Scatter") +
+  scale_fill_brewer(palette="Spectral") +
   guides(fill=guide_legend(title="# niveles de abstracción")) +
   ggtitle("Niveles de abstracción en etiquetas de Grupo Expansión")
   
@@ -52,7 +52,7 @@ ggplot(first_terms_df_agg, aes(x=first_terms, y=prop,
   guides(fill=F) +
   xlab("temas generales (1 nivel abstracción)")+
   ylab("%")+
-  #scale_fill_brewer(palette="Scatter") +
+  scale_fill_brewer(palette="Spectral") +
   ggtitle("% de etiquetas por temas de primer nivel de abstracción")
 
 ## second terms 

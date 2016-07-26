@@ -1,7 +1,7 @@
 library(dplyr)
 library(ggplot2)
 
-my_db <- src_postgres(dbname="itamtesis", host="localhost", user="liliana.millan")
+my_db <- src_postgres(dbname="itamtesis", host="localhost", user="Lili")
 clasificaciones <- tbl(my_db, "clasificaciones")
 
 clasificaciones_df <- collect(clasificaciones)
@@ -12,7 +12,7 @@ clasificaciones <- group_by(clasificaciones_df, content) %>%
 
 s <- inner_join(clasificaciones, clasificaciones_df, by=c("content"="content",
                                                           "bm25"="bm25")) 
-t <- distinct(s, content, bm25) 
+t <- distinct(s, content, bm25, .keep_all = T) 
 t <- select(t, content, bm25, tfidf.x, tag_bm25, tag_tfidf, seccion, url)
 names(t)[grep("^tfidf", names(t))] <- "tfidf" 
 clasificaciones <- t
@@ -141,3 +141,30 @@ documentos_humanos <- rbind(documentos_humanos, estados_unidos_sample)
 documentos_humanos <- rbind(documentos_humanos, salud_sample)
 
 save(documentos_humanos, file="docs_formulario.RData")
+
+
+### promedio de longitud de documentos
+len_docs <- sapply(documentos_humanos$content, function(x) str_split(x, " ") %>%
+         unlist() %>% length())
+names(len_docs) <- NULL
+len_docs_df <- data.frame(len_doc=len_docs,
+                       seccion=documentos_humanos$seccion_new)
+len_docs_df$seccion <- as.character(len_docs_df$seccion)
+
+mean_len_section <- group_by(len_docs_df, seccion) %>%
+  summarise(mean_len= mean(len_doc)) %>%
+  arrange(desc(mean_len))
+mean_len_section$seccion <- factor(mean_len_section$seccion,
+                                    levels=mean_len_section$seccion)
+
+ggplot(mean_len_section, aes(x=seccion, y=mean_len, fill=seccion, 
+                             label=format(round(mean_len, 2), big.mark=","))) +
+  geom_bar(stat="identity") + 
+  geom_text(vjust=0, size=4) +
+  geom_hline(yintercept=mean(mean_len_section$mean_len), color="black", size=1) +
+  scale_fill_brewer(palette="Spectral") +
+  theme_bw() +
+  labs(fill="Sección") +
+  scale_y_continuous(labels=comma) +
+  theme(axis.text.x=element_text(angle=90, hjust=1)) +
+  ggtitle("Longitud promedio de documentos por sección")
