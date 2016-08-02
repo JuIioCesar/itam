@@ -55,10 +55,10 @@ df_bm25$prop <- round(df_bm25$bm25/df_bm25$all*100,2)
 ggplot(df_bm25, aes(x=seccion, y=prop, fill=seccion, label=prop)) +
   geom_bar(stat="identity") +
   geom_text(vjust=0) +
-  geom_hline(yintercept = sum(df_bm25$bm25)/sum(df_bm25$all)*100, color="red") +
+  geom_hline(yintercept = sum(df_bm25$bm25)/sum(df_bm25$all)*100, color="black") +
   theme_bw() +
   ggtitle("% de selección de etiquetas sugeridas\npor BM25 en las encuestas") +
-  scale_fill_brewer(palette="YlGnBu") +
+  scale_fill_brewer(palette="Spectral") +
   ylab("%") +
   scale_y_continuous(limits=c(0, (max(df_bm25$prop)*.10 + max(df_bm25$prop)))) +
   theme(axis.text.x=element_text(angle=90, hjust=1))
