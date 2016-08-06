@@ -118,3 +118,7 @@ ggplot(recom, aes(x=seccion, y=prop, fill=modelo)) +
   theme_bw() +
   theme(axis.text.x=element_text(angle=90, hjust=1)) +
   ggtitle("% recomendaciones seleccionadas por sección")
+
+
+###analisis por longitud de documentos
+

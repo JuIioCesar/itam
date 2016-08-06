@@ -103,8 +103,27 @@ names(totals_secciones) <- c("seccion_new","iguales","totales","prop_totales")
 totals_secciones$prop_iguales <- round(totals_secciones$iguales/
                                          totals_secciones$totales*100, 2)
 
-
+#### longitud de documentos por seccion
+clasificaciones$longitud <- sapply(clasificaciones$content, function(x)
+                                    str_split(x, " ") %>% unlist %>%
+                                     length())
   
+longitudes <- group_by(clasificaciones, seccion_new) %>%
+  summarise(mean_len=round(mean(longitud)))
+
+ggplot(longitudes, aes(x=seccion_new, y=mean_len, fill=seccion_new, label=mean_len)) +
+  geom_bar(stat="identity") +
+  geom_hline(yintercept=mean(longitudes$mean_len),color="black") +
+  geom_text(vjust=0) +
+  scale_fill_brewer(palette="Spectral") +
+  scale_y_continuous(limits=c(0, max(longitudes$mean_len) *.10 + max(longitudes$mean_len)),
+                     labels=comma) +
+  theme_bw() +
+  theme(axis.text.x=element_text(angle=90, hjust=1)) +
+  xlab("seccion") +
+  ylab("longitud_promedio") +
+  labs(fill="seccion") +
+  ggtitle("Promedio de longitud de documento por sección")
 
 ###get sample 
 without_equals <- clasificaciones[which(!(clasificaciones$url %in% 
@@ -152,10 +171,10 @@ len_docs_df <- data.frame(len_doc=len_docs,
 len_docs_df$seccion <- as.character(len_docs_df$seccion)
 
 mean_len_section <- group_by(len_docs_df, seccion) %>%
-  summarise(mean_len= mean(len_doc)) %>%
-  arrange(desc(mean_len))
-mean_len_section$seccion <- factor(mean_len_section$seccion,
-                                    levels=mean_len_section$seccion)
+  summarise(mean_len=round(mean(len_doc))) 
+  #arrange(desc(mean_len))
+# mean_len_section$seccion <- factor(mean_len_section$seccion,
+#                                     levels=mean_len_section$seccion)
 
 ggplot(mean_len_section, aes(x=seccion, y=mean_len, fill=seccion, 
                              label=format(round(mean_len, 2), big.mark=","))) +
@@ -165,6 +184,8 @@ ggplot(mean_len_section, aes(x=seccion, y=mean_len, fill=seccion,
   scale_fill_brewer(palette="Spectral") +
   theme_bw() +
   labs(fill="Sección") +
-  scale_y_continuous(labels=comma) +
+  scale_y_continuous(labels=comma, 
+                     limits=c(0, max(mean_len_section$mean_len)*.10 + 
+                                max(mean_len_section$mean_len))) +
   theme(axis.text.x=element_text(angle=90, hjust=1)) +
   ggtitle("Longitud promedio de documentos por sección")
