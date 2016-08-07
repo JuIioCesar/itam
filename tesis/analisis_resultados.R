@@ -2,6 +2,8 @@ library(dplyr)
 library(readr)
 library(ggplot2)
 library(tidyr)
+library(stringr)
+library(scales)
 
 #analisis resultados
 
@@ -121,4 +123,83 @@ ggplot(recom, aes(x=seccion, y=prop, fill=modelo)) +
 
 
 ###analisis por longitud de documentos
+docs_bm25$longitud <- sapply(docs_bm25$content, function(x) str_split(x, " ") %>% 
+                               unlist() %>% length())
 
+lon_bm25 <- group_by(docs_bm25, seccion_new) %>%
+  summarise(mean_len=round(mean(longitud)))
+
+ggplot(lon_bm25, aes(x=seccion_new, y=mean_len, fill=seccion_new, label=mean_len)) +
+  geom_bar(stat="identity") +
+  geom_text(vjust=0) +
+  geom_hline(yintercept = mean(lon_bm25$mean_len)) + 
+  scale_fill_brewer(palette="Spectral") +
+  scale_y_continuous(labels=comma) +
+  theme_bw() +
+  xlab("seccion") +
+  ylab("promedio longitud") + 
+  labs(fill="seccion") +
+  theme(axis.text.x=element_text(angle=90, hjust=1)) +
+  ggtitle("Promedio de longitud de documentos recomendación BM25")
+
+## tfidf
+docs_tfidf$longitud <- sapply(docs_tfidf$content, function(x) str_split(x, " ") %>%
+                                unlist() %>% length())
+
+lon_tfidf <- group_by(docs_tfidf, seccion_new) %>%
+  summarise(mean_len=round(mean(longitud)))
+
+ggplot(lon_tfidf, aes(x=seccion_new, y=mean_len, fill=seccion_new, label=mean_len)) +
+  geom_bar(stat="identity") +
+  geom_text(vjust=0) +
+  geom_hline(yintercept = mean(lon_tfidf$mean_len)) + 
+  scale_fill_brewer(palette="Spectral") +
+  scale_y_continuous(labels=comma) +
+  theme_bw() +
+  xlab("seccion") +
+  ylab("promedio longitud") + 
+  labs(fill="seccion") +
+  theme(axis.text.x=element_text(angle=90, hjust=1)) +
+  ggtitle("Promedio de longitud de documentos recomendación TF/IDF")
+
+##ninguna
+docs_ninguno$longitud <- sapply(docs_ninguno$content, function(x) str_split(x, " ") %>%
+                                unlist() %>% length())
+
+lon_ninguno <- group_by(docs_ninguno, seccion_new) %>%
+  summarise(mean_len=round(mean(longitud)))
+
+ggplot(lon_ninguno, aes(x=seccion_new, y=mean_len, fill=seccion_new, label=mean_len)) +
+  geom_bar(stat="identity") +
+  geom_text(vjust=0) +
+  geom_hline(yintercept = mean(lon_ninguno$mean_len)) + 
+  scale_fill_brewer(palette="Spectral") +
+  scale_y_continuous(labels=comma) +
+  theme_bw() +
+  xlab("seccion") +
+  ylab("promedio longitud") + 
+  labs(fill="seccion") +
+  theme(axis.text.x=element_text(angle=90, hjust=1)) +
+  ggtitle("Promedio de longitud de documentos recomendación Ninguno")
+
+
+#all
+longitudes_all <- lon_bm25
+names(longitudes_all)[grep("mean_len", names(longitudes_all))] <- "bm25"
+longitudes_all$tfidf <- lon_tfidf$mean_len
+longitudes_all$ninguno <- lon_ninguno$mean_len
+
+longitudes <- gather(longitudes_all, modelo, mean_len, -seccion_new)
+
+ggplot(longitudes, aes(x=seccion_new, y=mean_len, fill=modelo)) +
+  geom_bar(stat="identity", position="dodge") +
+  #geom_hline(yintercept=mean(longitudes$mean_len)) +
+  scale_fill_brewer(palette="YlGnBu") +
+  scale_y_continuous(labels=comma) +
+  theme_bw() +
+  labs(fill="seccion") +
+  xlab("seccion") +
+  ylab("promedio longitud") +
+  theme(axis.text.x=element_text(angle=90, hjust=1)) +
+  ggtitle("Longitud promedio por sección/modelo")
+  
