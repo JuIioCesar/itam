@@ -4,6 +4,7 @@ library(ggplot2)
 library(tidyr)
 library(stringr)
 library(scales)
+library(corrplot)
 
 #analisis resultados
 
@@ -12,6 +13,7 @@ df <- data.frame(opcion=c("BM25","TF/IDF","Ninguno"),
 df <- arrange(df, desc(prop))
 df$opcion <- factor(df$opcion,
                             levels=df$opcion)
+df$modelo <- "opcion"
 
 ggplot(df, aes(x=opcion, y=prop, fill=opcion, label=prop)) +
   geom_bar(stat="identity") +
@@ -189,17 +191,195 @@ names(longitudes_all)[grep("mean_len", names(longitudes_all))] <- "bm25"
 longitudes_all$tfidf <- lon_tfidf$mean_len
 longitudes_all$ninguno <- lon_ninguno$mean_len
 
-longitudes <- gather(longitudes_all, modelo, mean_len, -seccion_new)
+longitudes_df <- gather(longitudes_all, modelo, mean_len, -seccion_new)
 
-ggplot(longitudes, aes(x=seccion_new, y=mean_len, fill=modelo)) +
+# ggplot(longitudes, aes(x=seccion_new, y=mean_len, fill=modelo, label=mean_len)) +
+#   geom_bar(stat="identity", position="dodge") +
+#   #geom_hline(yintercept=mean(longitudes$mean_len)) +
+#   scale_fill_brewer(palette="YlGnBu") +
+#   scale_y_continuous(labels=comma) +
+#   theme_bw() +
+#   labs(fill="seccion") +
+#   xlab("seccion") +
+#   ylab("longitud promedio") +
+#   theme(axis.text.x=element_text(angle=90, hjust=1)) +
+#   ggtitle("Longitud promedio por sección/modelo")
+
+load("longitudes_docs.RData")
+
+
+ggplot(longitudes_df, aes(x=modelo, y=mean_len, fill=modelo, 
+                       label=format(mean_len, big.mark=","))) +
   geom_bar(stat="identity", position="dodge") +
-  #geom_hline(yintercept=mean(longitudes$mean_len)) +
+  geom_text(vjust=0, size=3) +
+  facet_grid(seccion_new ~ .) +
+  geom_hline(data=longitudes, aes(yintercept=mean_len), color="black", size=1) + 
   scale_fill_brewer(palette="YlGnBu") +
-  scale_y_continuous(labels=comma) +
+  scale_y_continuous(labels=comma, 
+                     limits=c(0, max(longitudes_df$mean_len)*.10 + 
+                                max(longitudes_df$mean_len))) +
   theme_bw() +
   labs(fill="seccion") +
   xlab("seccion") +
-  ylab("promedio longitud") +
-  theme(axis.text.x=element_text(angle=90, hjust=1)) +
+  ylab("longitud promedio") +
+  #theme(axis.text.x=element_text(angle=90, hjust=1)) +
   ggtitle("Longitud promedio por sección/modelo")
   
+###correlacion 
+load("~/Documents/itam/itam/tesis/first_terms.RData")
+
+recomendaciones$seccion <- as.character(recomendaciones$seccion)
+names(lon_bm25)[grep("mean_len", names(lon_bm25))] <- "lon_bm25"
+names(lon_tfidf)[grep("mean_len", names(lon_tfidf))] <- "lon_tfidf"
+names(lon_ninguno)[grep("mean_len", names(lon_ninguno))] <- "lon_ninguno"
+prop_tags <- data.frame(seccion=c("estados-unidos","internacional","nacional","salud","tecnologia"),
+                        prop_tags=c(47.61,47.61,47.61,1.01,2.99), 
+                        stringsAsFactors = F)
+
+cor_data <- inner_join(recomendaciones, lon_bm25, by=c("seccion"="seccion_new")) %>%
+  inner_join(lon_tfidf, by=c("seccion"="seccion_new")) %>%
+  inner_join(lon_ninguno, by=c("seccion"="seccion_new"))
+
+M <- cor(cor_data[3:dim(cor_data)[2]])
+corrplot.mixed(M, lower="number", upper="circle", diag='l', tl.pos="lt")
+
+cor_data <- inner_join(recomendaciones, prop_tags)
+
+M <- cor(cor_data[3:dim(cor_data)[2]])
+corrplot.mixed(M, lower="number", upper="circle", diag='l', tl.pos="lt")
+
+
+###top 10 tags por modelo
+#bm25
+top_10_bm25 <- group_by(docs_bm25, tag_tfidf) %>%
+  summarise(n=n()) %>%
+  mutate(prop=round(n/sum(n)*100, 2)) %>%
+  arrange(desc(prop)) %>%
+  head(10)
+
+top_10_tfidf <- group_by(docs_tfidf, tag_tfidf) %>%
+  summarise(n=n()) %>%
+  mutate(prop=round(n/sum(n)*100, 2)) %>%
+  arrange(desc(prop)) %>%
+  head(10)
+
+top_10_ninguno_bm25 <- group_by(docs_ninguno, tag_bm25) %>%
+  summarise(n=n()) %>%
+  mutate(prop=round(n/sum(n)*100,2)) %>%
+  arrange(desc(prop)) %>%
+  head(10)
+
+top_10_ninguno_tfidf <- group_by(docs_ninguno, tag_tfidf) %>%
+  summarise(n=n()) %>%
+  mutate(prop=round(n/sum(n)*100,2)) %>%
+  arrange(desc(prop)) %>%
+  head(10)
+
+
+top_10_ninguno_bm25_tfidf <- group_by(docs_ninguno, tag_tfidf, tag_bm25) %>%
+  summarise(n=n()) %>%
+  mutate(prop=round(n/sum(n)*100,2)) %>%
+  arrange(desc(prop)) %>%
+  head(10)
+
+least_10_bm25 <- group_by(docs_bm25, tag_bm25) %>%
+  summarise(n=n()) %>%
+  mutate(prop=round(n/sum(n)*100, 2)) %>%
+  arrange(prop) %>%
+  head(10)
+
+least_10_tfidf <- group_by(docs_tfidf, tag_tfidf) %>%
+  summarise(n=n()) %>%
+  mutate(prop=round(n/sum(n)*100, 2)) %>%
+  arrange(prop) %>%
+  head(10)
+
+least_10_bm25_ninguno <- group_by(docs_ninguno, tag_bm25) %>%
+  summarise(n=n()) %>%
+  mutate(prop=round(n/sum(n)*100,2)) %>%
+  arrange(prop) %>%
+  head(10)
+
+least_10_tfidf_ninguno <- group_by(docs_ninguno, tag_tfidf) %>%
+  summarise(n=n()) %>%
+  mutate(prop=round(n/sum(n)*100, 2)) %>%
+  arrange(prop) %>%
+  head(10)
+
+salud_ninguno <- docs_ninguno[grep("salud",docs_ninguno$tag_bm25),]
+ 
+#### nivel de abstraccion por cada modelo 
+bm25_na <- docs_bm25
+bm25_na$nivel_abstraccion <- sapply(bm25_na$tag_bm25, function(x) 
+  str_split(x, "\\.") %>% unlist() %>% length())
+
+mean_nivel_abstraccion_seccion <- bm25_na %>% group_by(seccion_new) %>%
+  summarise(mean_nivel_abstraccion=round(mean(nivel_abstraccion),2))
+
+
+
+ggplot(mean_nivel_abstraccion_seccion, aes(x=seccion_new, y=mean_nivel_abstraccion, 
+                                           label=mean_nivel_abstraccion, 
+                                           fill=seccion_new)) +
+  geom_bar(stat="identity") +
+  geom_text(vjust=0) +
+  scale_fill_brewer(palette="Spectral", name="sección") +
+  theme_bw() +
+  xlab("sección") +
+  ylab("nivel de abstracción promedio") +
+  ggtitle("Nivel de abstracción promedio por sección - BM25") +
+  theme(axis.text.x=element_text(angle=90)) 
+
+##tfidf 
+tfidf_na <- docs_tfidf
+tfidf_na$nivel_abstraccion <- sapply(tfidf_na$tag_tfidf, function(x) 
+  str_split(x, "\\.") %>% unlist() %>% length())
+
+mean_nivel_abstraccion_seccion <- tfidf_na %>% group_by(seccion_new) %>%
+  summarise(mean_nivel_abstraccion=round(mean(nivel_abstraccion),2))
+
+
+
+ggplot(mean_nivel_abstraccion_seccion, aes(x=seccion_new, y=mean_nivel_abstraccion, 
+                                           label=mean_nivel_abstraccion, 
+                                           fill=seccion_new)) +
+  geom_bar(stat="identity") +
+  geom_text(vjust=0) +
+  scale_fill_brewer(palette="Spectral", name="sección") +
+  theme_bw() +
+  xlab("sección") +
+  ylab("nivel de abstracción promedio") +
+  ggtitle("Nivel de abstracción promedio por sección - TF/IDF") +
+  theme(axis.text.x=element_text(angle=90)) 
+
+##ninguno 
+ninguno_na <- docs_ninguno
+ninguno_na$nivel_abstraccion_bm25 <- sapply(ninguno_na$tag_bm25, function(x) 
+  str_split(x, "\\.") %>% unlist() %>% length())
+ninguno_na$nivel_abstraccion_tfidf <- sapply(ninguno_na$tag_tfidf, function(x) 
+  str_split(x, "\\.") %>% unlist() %>% length())
+
+mean_nivel_abstraccion_seccion <- ninguno_na %>% group_by(seccion_new) %>%
+  summarise(bm25=round(mean(nivel_abstraccion_bm25),2),
+            tfidf=round(mean(nivel_abstraccion_tfidf),2))
+
+
+mean_niv_abs_seccion <- gather(mean_nivel_abstraccion_seccion, model, nivel_abstraccion, -seccion_new)
+
+
+ggplot(mean_niv_abs_seccion, aes(x=seccion_new, y=nivel_abstraccion, 
+                                           label=nivel_abstraccion, 
+                                           fill=seccion_new)) +
+  geom_bar(stat="identity") +
+  geom_text(vjust=0) +
+  scale_fill_brewer(palette="Spectral", name="sección") +
+  facet_grid(model~.) +
+  theme_bw() +
+  xlab("sección") +
+  ylab("nivel de abstracción promedio") +
+  ggtitle("Nivel de abstracción promedio por sección - Ninguno") +
+  theme(axis.text.x=element_text(angle=90)) 
+
+
+###documentos con misma seleccion
+load("docs_formulario.RData")

@@ -90,9 +90,8 @@ contents.df$seccion[grep("/tech/", contents.df$url)] <- "tech"
 s <- select(contents.df, fecha, url, title, description, content, origen, seccion)
 
 ### to postgres
-conn <- dbConnect("PostgreSQL", dbname="itamtesis", host="localhost" )
-#my_db <- src_postgres(dbname="itamtesis", host="localhost", user="liliana.millan")
-dbWriteTable(conn, value=s, name="noticias", append=T, row.names=F)
+my_db <- src_postgres(dbname="itamtesis", host="localhost", user="liliana.millan")
+dbWriteTable(my_db, value=s, name="noticias", append=T, row.names=F)
 
 
 

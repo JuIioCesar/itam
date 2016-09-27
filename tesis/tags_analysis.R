@@ -1,3 +1,6 @@
+library(stringr)
+load("~/Documents/itam/itam/tesis/tags.df.RData")
+
 s <- sapply(tags.df$tags, function(x)  
   str_split(x,"\\.") %>% unlist() %>% length())
 
@@ -267,5 +270,23 @@ Tree <- gvisTreeMap(test, idvar="Region", parentvar="Parent",
 plot(Tree)
 
 
+#####nivel de abstraccion promedio por etiqueta de primer nivel
+tags_na <- select(tags.df, tags)
+tags_na$nivel_abstraccion <- sapply(tags_na$tags, function(x)
+  str_split(x, "\\.") %>% unlist() %>% length())
+tags_na$first_level <- sapply(tags_na$tags, function(x)  
+  unlist(str_split(x,"\\."))[1])
 
+mean_na <- tags_na %>% group_by(first_level) %>% 
+  summarise(mean_na=round(mean(nivel_abstraccion),2))
 
+ggplot(mean_na, aes(x=first_level, y=mean_na, fill=first_level,
+                    label=mean_na)) +
+  geom_bar(stat="identity") +
+  geom_text(vjust=0) +
+  scale_fill_hue(l=35, c=95) +
+  theme_bw() +
+  xlab("Temas generales (1er nivel de abstracción)") +
+  ylab("Nivel de abstracción promedio") +
+  ggtitle("Nivel de abstracción promedio por tema") +
+  theme(axis.text.x=element_text(angle=90, hjust=1))

@@ -103,6 +103,68 @@ names(totals_secciones) <- c("seccion_new","iguales","totales","prop_totales")
 totals_secciones$prop_iguales <- round(totals_secciones$iguales/
                                          totals_secciones$totales*100, 2)
 
+
+ggplot(totals_secciones, aes(x=seccion_new, y=prop_iguales, fill=seccion_new,
+                           label=format(prop_iguales, big.mark = ","))) +
+  geom_bar(stat="identity") +
+  geom_text(vjust=0) +
+  geom_hline(yintercept=mean(totals_secciones$prop_iguales)) +
+  scale_fill_brewer(palette="Spectral", name="seccion") +
+  theme_bw() +
+  theme(axis.text.x=element_text(angle=90, hjust=1)) +
+  xlab("seccion") +
+  ggtitle("Proporción de documentos con la misma \netiqueta sugerida por BM25 y TF/IDF por sección")
+  
+
+#longitud de documentos con tags iguales 
+equal_tags$longitud <- sapply(equal_tags$content, function(x) str_split(x, " ") %>%
+                                  unlist() %>% length())
+
+s <- equal_tags %>% group_by(seccion_new) %>% 
+  summarise(mean_len=round(mean(longitud),2))
+
+
+ggplot(s, aes(x=seccion_new, y=mean_len, fill=seccion_new, 
+              label=format(mean_len, big.mark = ","))) +
+  geom_bar(stat="identity") +
+  geom_text(vjust=0) +
+  geom_hline(yintercept=mean(s$mean_len)) +
+  scale_fill_brewer(palette="Spectral", name="seccion") +
+  theme_bw() +
+  xlab("seccion") +
+  theme(axis.text.x=element_text(angle=90, hjust=1)) +
+  ggtitle("Longitud promedio de documentos con\n misma clasificación recomendada por BM25 y TF/IDF")
+  
+
+#nivel de abstraccion con tags iguales
+equal_tags$nivel_abstraccion <- sapply(equal_tags$tag_bm25, function(x) str_split(x, "\\.") %>%
+                                unlist() %>% length())
+
+s <- equal_tags %>% group_by(seccion_new) %>% 
+  summarise(mean_niv_abs=round(mean(nivel_abstraccion),2))
+
+
+ggplot(s, aes(x=seccion_new, y=mean_niv_abs, fill=seccion_new, 
+              label=format(mean_niv_abs, big.mark = ","))) +
+  geom_bar(stat="identity") +
+  geom_text(vjust=0) +
+  geom_hline(yintercept=mean(s$mean_niv_abs)) +
+  scale_fill_brewer(palette="Spectral", name="seccion") +
+  theme_bw() +
+  xlab("seccion") +
+  theme(axis.text.x=element_text(angle=90, hjust=1)) +
+  ggtitle("Nivel de abstracción promedio de documentos con\n misma clasificación recomendada por BM25 y TF/IDF")
+
+
+
+equal_tags %>% group_by(nivel_abstraccion) %>% 
+#top 10 etiquetas recomendadas con 
+top_10_tags <- group_by(equal_tags, tag_bm25) %>% summarise(n=n()) %>% 
+  mutate(prop=round(n/sum(n)*100,2)) %>%
+  arrange(desc(prop)) %>%
+  head(10)
+
+##################
 #### longitud de documentos por seccion
 clasificaciones$longitud <- sapply(clasificaciones$content, function(x)
                                     str_split(x, " ") %>% unlist %>%
@@ -189,3 +251,6 @@ ggplot(mean_len_section, aes(x=seccion, y=mean_len, fill=seccion,
                                 max(mean_len_section$mean_len))) +
   theme(axis.text.x=element_text(angle=90, hjust=1)) +
   ggtitle("Longitud promedio de documentos por sección")
+
+
+ 
